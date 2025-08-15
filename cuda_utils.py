@@ -66,6 +66,9 @@ class CudaStream:
     def set_device(self):
         self.cuda_context_manager.set_device(self.device_id)
 
+    def sync(self):
+        check_cuda_errors(driver.cuStreamSynchronize(self.stream))
+
     def __del__(self):
         check_cuda_errors(driver.cuStreamDestroy(self.stream))
 

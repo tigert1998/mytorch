@@ -13,6 +13,7 @@ class Conv2d(Module):
         padding,
         bias=True,
         device="cpu",
+        dtype=np.float32,
     ):
         super().__init__()
 
@@ -29,7 +30,8 @@ class Conv2d(Module):
             Parameter(
                 Tensor(
                     cpu_array=np.zeros(
-                        (self.out_channels, self.in_channels, *self.kernel_size)
+                        (self.out_channels, self.in_channels, *self.kernel_size),
+                        dtype=dtype,
                     ),
                     device=device,
                 )
@@ -39,7 +41,13 @@ class Conv2d(Module):
             self.register_parameter(
                 "bias",
                 Parameter(
-                    Tensor(cpu_array=np.zeros((self.out_channels,)), device=device)
+                    Tensor(
+                        cpu_array=np.zeros(
+                            (self.out_channels,),
+                            dtype=dtype,
+                        ),
+                        device=device,
+                    )
                 ),
             )
         else:
