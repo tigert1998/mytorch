@@ -1,9 +1,9 @@
 import numpy as np
 from typing import Optional
 
-from cuda.bindings import runtime
+from cuda.bindings import driver
 
-from cuda_utils import check_cuda_errors
+from cuda_utils import check_cuda_errors, CudaContextManager
 
 
 class Device:
@@ -43,7 +43,7 @@ class CudaPtr:
         self.ptr = ptr
 
     def __del__(self):
-        check_cuda_errors(runtime.cudaFree(self.ptr))
+        check_cuda_errors(driver.cuMemFree(self.ptr))
 
 
 class Tensor:
@@ -74,6 +74,8 @@ class Tensor:
         self.cuda_ptr = None
         self.cpu_array = None
 
+        cuda_context_manager = CudaContextManager.instance()
+
         if cpu_array is not None:
             assert self.dtype is None or self.dtype == cpu_array.dtype
             self.dtype = cpu_array.dtype
@@ -84,10 +86,10 @@ class Tensor:
                 self.cpu_array = cpu_array
             elif self.device.type == "cuda":
                 # copy from cpu to cuda
-                check_cuda_errors(runtime.cudaSetDevice(self.device.index))
+                cuda_context_manager.set_device(self.device.index)
                 self.cuda_ptr = CudaPtr(
                     check_cuda_errors(
-                        runtime.cudaMalloc(cpu_array.itemsize * cpu_array.size)
+                        driver.cuMemAlloc(cpu_array.itemsize * cpu_array.size)
                     )
                 )
                 self._write_cuda_memory(cpu_array)
@@ -96,10 +98,10 @@ class Tensor:
             self.cpu_array = np.zeros(shape=self.shape, dtype=self.dtype)
 
         elif self.device.type == "cuda":
-            check_cuda_errors(runtime.cudaSetDevice(self.device.index))
+            cuda_context_manager.set_device(self.device.index)
             self.cuda_ptr = CudaPtr(
                 check_cuda_errors(
-                    runtime.cudaMalloc(
+                    driver.cuMemAlloc(
                         np.dtype(self.dtype).itemsize * np.prod(self.shape)
                     )
                 )
@@ -122,11 +124,12 @@ class Tensor:
                 # cuda to cuda
                 new_tensor = Tensor(dtype=self.dtype, shape=self.shape, device=device)
                 check_cuda_errors(
-                    runtime.cudaMemcpy(
+                    driver.cuMemcpyPeer(
                         new_tensor.cuda_ptr.ptr,
+                        check_cuda_errors(driver.cuDeviceGet(new_tensor.device.index)),
                         self.cuda_ptr.ptr,
+                        check_cuda_errors(driver.cuDeviceGet(self.device.index)),
                         np.dtype(self.dtype).itemsize * np.prod(self.shape),
-                        runtime.cudaMemcpyKind.cudaMemcpyDeviceToDevice,
                     )
                 )
                 return new_tensor
@@ -134,22 +137,20 @@ class Tensor:
     def _read_cuda_memory(self) -> np.ndarray:
         array = np.zeros(shape=self.shape, dtype=self.dtype)
         check_cuda_errors(
-            runtime.cudaMemcpy(
+            driver.cuMemcpyDtoH(
                 array.ctypes.data,
                 self.cuda_ptr.ptr,
                 array.itemsize * array.size,
-                runtime.cudaMemcpyKind.cudaMemcpyDeviceToHost,
             )
         )
         return array
 
     def _write_cuda_memory(self, array: np.ndarray):
         check_cuda_errors(
-            runtime.cudaMemcpy(
+            driver.cuMemcpyHtoD(
                 self.cuda_ptr.ptr,
                 array.ctypes.data,
                 array.itemsize * array.size,
-                runtime.cudaMemcpyKind.cudaMemcpyHostToDevice,
             )
         )
 
