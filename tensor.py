@@ -90,14 +90,7 @@ class Tensor:
                         runtime.cudaMalloc(cpu_array.itemsize * cpu_array.size)
                     )
                 )
-                check_cuda_errors(
-                    runtime.cudaMemcpy(
-                        self.cuda_ptr.ptr,
-                        cpu_array.ctypes.data,
-                        cpu_array.itemsize * cpu_array.size,
-                        runtime.cudaMemcpyKind.cudaMemcpyHostToDevice,
-                    )
-                )
+                self._write_cuda_memory(cpu_array)
 
         elif self.device.type == "cpu":
             self.cpu_array = np.zeros(shape=self.shape, dtype=self.dtype)
@@ -123,15 +116,7 @@ class Tensor:
         elif self.device.type == "cuda":
             if device.type == "cpu":
                 # cuda to cpu
-                array = np.zeros(shape=self.shape, dtype=self.dtype)
-                check_cuda_errors(
-                    runtime.cudaMemcpy(
-                        array.ctypes.data,
-                        self.cuda_ptr.ptr,
-                        array.itemsize * array.size,
-                        runtime.cudaMemcpyKind.cudaMemcpyDeviceToHost,
-                    )
-                )
+                array = self._read_cuda_memory()
                 return Tensor(cpu_array=array, device="cpu")
             elif device.type == "cuda:":
                 # cuda to cuda
@@ -145,3 +130,40 @@ class Tensor:
                     )
                 )
                 return new_tensor
+
+    def _read_cuda_memory(self) -> np.ndarray:
+        array = np.zeros(shape=self.shape, dtype=self.dtype)
+        check_cuda_errors(
+            runtime.cudaMemcpy(
+                array.ctypes.data,
+                self.cuda_ptr.ptr,
+                array.itemsize * array.size,
+                runtime.cudaMemcpyKind.cudaMemcpyDeviceToHost,
+            )
+        )
+        return array
+
+    def _write_cuda_memory(self, array: np.ndarray):
+        check_cuda_errors(
+            runtime.cudaMemcpy(
+                self.cuda_ptr.ptr,
+                array.ctypes.data,
+                array.itemsize * array.size,
+                runtime.cudaMemcpyKind.cudaMemcpyHostToDevice,
+            )
+        )
+
+    def __repr__(self):
+        if self.device.type == "cpu":
+            array = self.cpu_array
+        elif self.device.type == "cuda":
+            array = self._read_cuda_memory()
+        return f'tensor({repr(array)}, device="{self.device}")'
+
+    def fill_(self, value):
+        if self.device.type == "cpu":
+            self.cpu_array.fill(value)
+        elif self.device.type == "cuda":
+            array = self._read_cuda_memory()
+            array.fill(value)
+            self._write_cuda_memory(array)
