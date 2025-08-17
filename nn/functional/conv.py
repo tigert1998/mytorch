@@ -1,7 +1,7 @@
 import numpy as np
 
 from autograd import DAGTracker
-from tensor import Tensor, InvalidDeviceError
+from tensor import Tensor, InvalidDeviceError, InvalidDataTypeError
 from cuda_kernel import CudaKernelAndStreamManager
 
 
@@ -23,8 +23,17 @@ def conv2d(input, weight, bias=None, stride=1, padding=0):
     if input.device.type == "cuda":
         tensor = Tensor(shape=output_shape, dtype=input.dtype, device=input.device)
         cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+        assert input.dtype == weight.dtype and (
+            bias is None or input.dtype == bias.dtype
+        )
+        if input.dtype == np.float32:
+            func_name = "conv2d_reference_fp32"
+        elif input.dtype == np.float16:
+            func_name = "conv2d_reference_fp16"
+        else:
+            raise InvalidDataTypeError(input.dtype)
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "conv2d.cu", "conv2d_reference", input.device.index
+            "conv2d.cu", func_name, input.device.index
         )
         cuda_kernel.run(
             (output_shape[0] * output_shape[1], output_shape[2], output_shape[3]),

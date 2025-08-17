@@ -1,3 +1,4 @@
+import os
 import numpy as np
 
 from cuda.bindings import driver, nvrtc
@@ -85,7 +86,7 @@ class CudaCompiler:
     def __init__(self):
         self._cuda_context_manager = CudaContextManager()
 
-    def arch(self, device_id):
+    def _arch(self, device_id):
         cu_device = check_cuda_errors(driver.cuDeviceGet(device_id))
         major = check_cuda_errors(
             driver.cuDeviceGetAttribute(
@@ -107,11 +108,16 @@ class CudaCompiler:
         prog = check_cuda_errors(
             nvrtc.nvrtcCreateProgram(content.encode(), path.encode(), 0, [], [])
         )
-        major, minor = self.arch(device_id)
-        arch_arg = bytes(f"--gpu-architecture=compute_{major}{minor}", "ascii")
-        opts = [b"--fmad=false", arch_arg]
+        major, minor = self._arch(device_id)
+        cuda_include_path = os.path.join(os.environ["CUDA_PATH"], "include")
+        opts = [
+            b"--fmad=false",
+            f"--gpu-architecture=compute_{major}{minor}".encode(),
+            f"-I{cuda_include_path}".encode(),
+            b"-std=c++11",
+        ]
         try:
-            check_cuda_errors(nvrtc.nvrtcCompileProgram(prog, 2, opts))
+            check_cuda_errors(nvrtc.nvrtcCompileProgram(prog, len(opts), opts))
         except Exception:
             log_size = check_cuda_errors(nvrtc.nvrtcGetProgramLogSize(prog))
             log = b" " * log_size

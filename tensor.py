@@ -12,6 +12,12 @@ class InvalidDeviceError(RuntimeError):
         super().__init__(message)
 
 
+class InvalidDataTypeError(RuntimeError):
+    def __init__(self, data_type):
+        message = f"Invalid data type: {data_type}"
+        super().__init__(message)
+
+
 class Device:
     type: str
     index: Optional[int]
