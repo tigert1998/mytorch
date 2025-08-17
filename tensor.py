@@ -6,6 +6,12 @@ from cuda.bindings import driver
 from cuda_utils import check_cuda_errors, CudaContextManager
 
 
+class InvalidDeviceError(RuntimeError):
+    def __init__(self, device_type):
+        message = f"Invalid device type: {device_type}"
+        super().__init__(message)
+
+
 class Device:
     type: str
     index: Optional[int]
@@ -64,10 +70,11 @@ class Tensor:
             return
 
         self.device = Device(device)
-        assert self.device.type in [
+        if self.device.type not in [
             "cpu",
             "cuda",
-        ], f"Invalid device type: {self.device.type}"
+        ]:
+            raise InvalidDeviceError(self.device.type)
 
         self.dtype = dtype
         self.shape = shape

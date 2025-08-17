@@ -15,3 +15,8 @@ class Module:
     def to(self, device):
         for key in self._parameters.keys():
             self._parameters[key] = self._parameters[key].to(device)
+
+    def __getattr__(self, name):
+        if name in self._parameters:
+            return self._parameters[name]
+        return super().__getattr__(name)

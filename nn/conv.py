@@ -1,6 +1,7 @@
 import numpy as np
 from nn.module import Module
 from nn.parameter import Parameter, Tensor
+from nn.functional.conv import conv2d
 
 
 class Conv2d(Module):
@@ -52,3 +53,6 @@ class Conv2d(Module):
             )
         else:
             self.register_parameter("bias", None)
+
+    def forward(self, input):
+        return conv2d(input, self.weight, self.bias, self.stride, self.padding)
