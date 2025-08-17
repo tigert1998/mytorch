@@ -33,11 +33,11 @@ __global__ void conv2d_reference(int batch_size, int input_h, int input_w,
                           input_y >= input_w;
         T input_value =
             is_padding
-                ? 0
+                ? (T)0
                 : input[((batch_idx * in_channels + k) * input_h + input_x) *
                             input_w +
                         input_y];
-        T bias_value = bias != nullptr ? bias[out_c] : 0;
+        T bias_value = bias != nullptr ? bias[out_c] : (T)0;
         ans += input_value * weight_value + bias_value;
       }
 

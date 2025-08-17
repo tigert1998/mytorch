@@ -60,12 +60,12 @@ class CudaKernelAndStreamManager:
 
     def __init__(self):
         self._cuda_compiler = CudaCompiler.instance()
-        self._cuda_context_manager = CudaContextManager()
+        self._cuda_context_manager = CudaContextManager.instance()
         self._streams = {}
         self._modules = {}
 
     def __del__(self):
-        for device_id, dic in self._modules:
+        for device_id, dic in self._modules.items():
             self._cuda_context_manager.set_device(device_id)
             for module in dic.values():
                 check_cuda_errors(driver.cuModuleUnload(module))

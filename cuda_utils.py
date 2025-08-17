@@ -84,7 +84,7 @@ class CudaCompiler:
         return cls._instance
 
     def __init__(self):
-        self._cuda_context_manager = CudaContextManager()
+        self._cuda_context_manager = CudaContextManager.instance()
 
     def _arch(self, device_id):
         cu_device = check_cuda_errors(driver.cuDeviceGet(device_id))
@@ -114,7 +114,6 @@ class CudaCompiler:
             b"--fmad=false",
             f"--gpu-architecture=compute_{major}{minor}".encode(),
             f"-I{cuda_include_path}".encode(),
-            b"-std=c++11",
         ]
         try:
             check_cuda_errors(nvrtc.nvrtcCompileProgram(prog, len(opts), opts))
