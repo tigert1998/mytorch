@@ -21,7 +21,12 @@ def conv2d(input, weight, bias=None, stride=1, padding=0):
     dag_tracker = DAGTracker.instance()
 
     if input.device.type == "cuda":
-        tensor = Tensor(shape=output_shape, dtype=input.dtype, device=input.device)
+        tensor = Tensor(
+            shape=output_shape,
+            dtype=input.dtype,
+            device=input.device,
+            requires_grad=True,
+        )
         cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
         assert input.dtype == weight.dtype and (
             bias is None or input.dtype == bias.dtype

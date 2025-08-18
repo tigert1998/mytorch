@@ -18,11 +18,14 @@ class DAGTracker:
         return decorator
 
     def __init__(self):
+        self._reset_dag()
+        self._backward_funcs = {}
+
+    def _reset_dag(self):
         self._tensor_node = {}
         self._node_inputs = {}
         self._node_outputs = {}
         self._node_type_counts = {}
-        self._backward_funcs = {}
 
     def add_node(self, name, input_args, output_tensors):
         index = self._node_type_counts.get(name, 0)
@@ -92,4 +95,14 @@ class DAGTracker:
             for input_tensor, grad in zip(
                 self._node_inputs[(node, idx)], input_tensors_grads
             ):
-                input_tensor.grad = grad
+                if input_tensor.requires_grad:
+                    input_tensor.grad = grad
+
+        # erase tensor and nodes from dag
+        for node, idx in order:
+            for output_tensor in self._node_outputs[(node, idx)]:
+                del self._tensor_node[output_tensor]
+
+        for node, idx in order:
+            del self._node_outputs[(node, idx)]
+            del self._node_inputs[(node, idx)]

@@ -9,7 +9,9 @@ def sum(tensor):
 
     dag_tracker = DAGTracker.instance()
 
-    output_tensor = Tensor(dtype=tensor.dtype, shape=(1,), device=tensor.device)
+    output_tensor = Tensor(
+        dtype=tensor.dtype, shape=(1,), device=tensor.device, requires_grad=True
+    )
 
     if tensor.device.type == "cuda":
         if tensor.dtype == np.float32:
