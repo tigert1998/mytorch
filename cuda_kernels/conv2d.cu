@@ -37,11 +37,11 @@ __global__ void conv2d_reference(int batch_size, int input_h, int input_w,
                 : input[((batch_idx * in_channels + k) * input_h + input_x) *
                             input_w +
                         input_y];
-        T bias_value = bias != nullptr ? bias[out_c] : (T)0;
-        ans += input_value * weight_value + bias_value;
+        ans += input_value * weight_value;
       }
 
-  output[(xid * output_h + yid) * output_w + zid] = ans;
+  T bias_value = bias != nullptr ? bias[out_c] : (T)0;
+  output[(xid * output_h + yid) * output_w + zid] = ans + bias_value;
 }
 
 extern "C" __global__ void conv2d_reference_fp32(

@@ -21,3 +21,5 @@ class DAGTracker:
             self._tensor_node[output_tensor] = node
 
         self._node_inputs[node] = input_args
+
+    def backward(self, tensor): ...

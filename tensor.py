@@ -178,6 +178,28 @@ class Tensor:
         if self.device.type == "cpu":
             self.cpu_array.fill(value)
         elif self.device.type == "cuda":
+            # TODO: use kernel function
             array = self._read_cuda_memory()
             array.fill(value)
             self._write_cuda_memory(array)
+
+    def copy_(self, tensor):
+        assert self.dtype == tensor.dtype and self.shape == tensor.shape
+        if self.device.type == "cpu":
+            if tensor.device.type == "cpu":
+                self.cpu_array = tensor.cpu_array
+            elif tensor.device.type == "cuda":
+                self.cpu_array = tensor._read_cuda_memory()
+        elif self.device.type == "cuda":
+            if tensor.device.type == "cpu":
+                self._write_cuda_memory(tensor.cpu_array)
+            elif tensor.device.type == "cuda":
+                check_cuda_errors(
+                    driver.cuMemcpyPeer(
+                        self.cuda_ptr.ptr,
+                        check_cuda_errors(driver.cuDeviceGet(self.device.index)),
+                        tensor.cuda_ptr.ptr,
+                        check_cuda_errors(driver.cuDeviceGet(tensor.device.index)),
+                        np.dtype(self.dtype).itemsize * np.prod(self.shape),
+                    )
+                )
