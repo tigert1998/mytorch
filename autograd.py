@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class DAGTracker:
     _instance = None
 
@@ -7,10 +10,19 @@ class DAGTracker:
             cls._instance = DAGTracker()
         return cls._instance
 
+    def register_backward_function(self, op_name):
+        def decorator(func):
+            self._backward_funcs[op_name] = func
+            return func
+
+        return decorator
+
     def __init__(self):
         self._tensor_node = {}
         self._node_inputs = {}
+        self._node_outputs = {}
         self._node_type_counts = {}
+        self._backward_funcs = {}
 
     def add_node(self, name, input_args, output_tensors):
         index = self._node_type_counts.get(name, 0)
@@ -21,6 +33,7 @@ class DAGTracker:
             self._tensor_node[output_tensor] = node
 
         self._node_inputs[node] = input_args
+        self._node_outputs[node] = output_tensors
 
     def _topological_sort(self, tensor):
         from tensor import Tensor
@@ -60,5 +73,23 @@ class DAGTracker:
         return ans
 
     def backward(self, tensor):
+        from tensor import Tensor
+
+        assert np.prod(tensor.shape) == 1
+        tensor.grad = Tensor(
+            cpu_array=np.array(1, dtype=tensor.dtype).reshape(tensor.shape),
+            device=tensor.device,
+        )
+
         order = self._topological_sort(tensor)
-        print(order)
+        for node, idx in order:
+            backward_func = self._backward_funcs[node]
+            output_tensors = self._node_outputs[(node, idx)]
+            input_tensors_grads = backward_func(
+                *[tensor.grad for tensor in output_tensors],
+                *self._node_inputs[(node, idx)]
+            )
+            for input_tensor, grad in zip(
+                self._node_inputs[(node, idx)], input_tensors_grads
+            ):
+                input_tensor.grad = grad

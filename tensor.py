@@ -209,6 +209,11 @@ class Tensor:
                     )
                 )
 
+    def sum(self):
+        from basic_ops import sum as func
+
+        return func(self)
+
     def backward(self):
         instance = DAGTracker.instance()
         instance.backward(self)

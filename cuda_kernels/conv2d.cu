@@ -108,7 +108,7 @@ __global__ void conv2d_backward_reference(
       }
 
   if (bias != nullptr) {
-    atomicAdd(&bias[out_c], output_grad[output_idx]);
+    atomicAdd(&bias_grad[out_c], output_grad[output_idx]);
   }
 }
 
