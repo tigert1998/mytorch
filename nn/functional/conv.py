@@ -2,7 +2,7 @@ import numpy as np
 
 from autograd import DAGTracker
 from tensor import Tensor, InvalidDeviceError, InvalidDataTypeError
-from cuda_kernel import CudaKernelAndStreamManager
+from cuda_utils import CudaKernelAndStreamManager
 
 
 def conv2d(input, weight, bias=None, stride=1, padding=0):

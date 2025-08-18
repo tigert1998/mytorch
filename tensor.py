@@ -4,6 +4,7 @@ from typing import Optional
 from cuda.bindings import driver
 
 from cuda_utils import check_cuda_errors, CudaContextManager
+from autograd import DAGTracker
 
 
 class InvalidDeviceError(RuntimeError):
@@ -66,7 +67,11 @@ class Tensor:
         shape=None,
         device="cpu",
         tensor=None,
+        requires_grad=False,
     ):
+        self.requires_grad = requires_grad
+        self.grad = None
+
         if tensor is not None:
             self.cpu_array = tensor.cpu_array
             self.cuda_ptr = tensor.cuda_ptr
@@ -203,3 +208,7 @@ class Tensor:
                         np.dtype(self.dtype).itemsize * np.prod(self.shape),
                     )
                 )
+
+    def backward(self):
+        instance = DAGTracker.instance()
+        instance.backward(self)
