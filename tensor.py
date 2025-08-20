@@ -55,12 +55,32 @@ class Device:
             return f"{self.type}:{self.index}"
 
 
-class CudaPtr:
-    def __init__(self, ptr):
-        self.ptr = ptr
+class CudaMemory:
+    def __init__(self, size):
+        self.ptr = check_cuda_errors(driver.cuMemAlloc(size))
 
     def __del__(self):
         check_cuda_errors(driver.cuMemFree(self.ptr))
+
+    def read(self, shape, dtype) -> np.ndarray:
+        array = np.zeros(shape=shape, dtype=dtype)
+        check_cuda_errors(
+            driver.cuMemcpyDtoH(
+                array.ctypes.data,
+                self.ptr,
+                array.itemsize * array.size,
+            )
+        )
+        return array
+
+    def write(self, array: np.ndarray):
+        check_cuda_errors(
+            driver.cuMemcpyHtoD(
+                self.ptr,
+                array.ctypes.data,
+                array.itemsize * array.size,
+            )
+        )
 
 
 class Tensor:
@@ -109,11 +129,7 @@ class Tensor:
             elif self.device.type == "cuda":
                 # copy from cpu to cuda
                 cuda_context_manager.set_device(self.device.index)
-                self.cuda_ptr = CudaPtr(
-                    check_cuda_errors(
-                        driver.cuMemAlloc(cpu_array.itemsize * cpu_array.size)
-                    )
-                )
+                self.cuda_ptr = CudaMemory(cpu_array.itemsize * cpu_array.size)
                 self._write_cuda_memory(cpu_array)
 
         elif self.device.type == "cpu":
@@ -121,12 +137,8 @@ class Tensor:
 
         elif self.device.type == "cuda":
             cuda_context_manager.set_device(self.device.index)
-            self.cuda_ptr = CudaPtr(
-                check_cuda_errors(
-                    driver.cuMemAlloc(
-                        np.dtype(self.dtype).itemsize * np.prod(self.shape)
-                    )
-                )
+            self.cuda_ptr = CudaMemory(
+                np.dtype(self.dtype).itemsize * np.prod(self.shape)
             )
 
     def to(self, device):
@@ -157,24 +169,10 @@ class Tensor:
                 return new_tensor
 
     def _read_cuda_memory(self) -> np.ndarray:
-        array = np.zeros(shape=self.shape, dtype=self.dtype)
-        check_cuda_errors(
-            driver.cuMemcpyDtoH(
-                array.ctypes.data,
-                self.cuda_ptr.ptr,
-                array.itemsize * array.size,
-            )
-        )
-        return array
+        return self.cuda_ptr.read(self.shape, self.dtype)
 
     def _write_cuda_memory(self, array: np.ndarray):
-        check_cuda_errors(
-            driver.cuMemcpyHtoD(
-                self.cuda_ptr.ptr,
-                array.ctypes.data,
-                array.itemsize * array.size,
-            )
-        )
+        self.cuda_ptr.write(array)
 
     def __repr__(self):
         if self.device.type == "cpu":
