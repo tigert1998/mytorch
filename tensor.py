@@ -3,7 +3,7 @@ from typing import Optional
 
 from cuda.bindings import driver
 
-from cuda_utils import check_cuda_errors, CudaContextManager
+from cuda.cuda_utils import check_cuda_errors, CudaContextManager
 from autograd import DAGTracker
 
 

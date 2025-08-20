@@ -557,6 +557,6 @@ class CublasLt:
                 0 if algo is None else algo.ctypes.data,
                 workspace,
                 workspace_size_in_bytes,
-                stream.stream.getPtr(),
+                int(stream.stream),
             )
         )
