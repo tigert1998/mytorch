@@ -19,7 +19,7 @@ class Module:
     def __getattr__(self, name):
         if name in self._parameters:
             return self._parameters[name]
-        return super().__getattr__(name)
+        return getattr(self, name)
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError()

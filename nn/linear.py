@@ -3,7 +3,7 @@ import numpy as np
 from nn.module import Module
 from nn.parameter import Parameter
 from tensor import Tensor
-from basic_ops import mm, reshape, permute
+from basic_ops import mm, reshape, permute, add
 
 
 class Linear(Module):
@@ -34,7 +34,7 @@ class Linear(Module):
                 Parameter(
                     Tensor(
                         cpu_array=np.zeros(
-                            (self.out_channels,),
+                            (self.out_features,),
                             dtype=dtype,
                         ),
                         device=device,
@@ -48,5 +48,6 @@ class Linear(Module):
         b = x.shape[:-1]
         x = reshape(x, (-1, self.in_features))
         x = mm(x, permute(self.weight, (1, 0)))
-        # todo: x + bias
+        if self.bias is not None:
+            x = add(x, self.bias)
         return reshape(x, b + (self.out_features,))

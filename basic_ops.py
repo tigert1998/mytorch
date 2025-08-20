@@ -105,9 +105,9 @@ def _cuda_bmm(x, y, x_t: bool, y_t: bool, requires_grad):
     b_desc = cublas_lt.matrix_layout_create(
         data_type, y.shape[1], y.shape[2], y.shape[2]
     )
-    d_desc = cublas_lt.matrix_layout_create(
-        data_type, x.shape[1], y.shape[2], y.shape[2]
-    )
+    z_rows = x.shape[2] if x_t else x.shape[1]
+    z_cols = y.shape[1] if y_t else y.shape[2]
+    d_desc = cublas_lt.matrix_layout_create(data_type, z_rows, z_cols, z_cols)
     for desc in [a_desc, b_desc, d_desc]:
         cublas_lt.matrix_layout_set_attribute(
             desc,
@@ -138,7 +138,7 @@ def _cuda_bmm(x, y, x_t: bool, y_t: bool, requires_grad):
         )
 
     z = Tensor(
-        shape=(x.shape[0], x.shape[1], y.shape[2]),
+        shape=(x.shape[0], z_rows, z_cols),
         dtype=x.dtype,
         device=x.device,
         requires_grad=requires_grad,
@@ -422,7 +422,7 @@ def _calculate_reshaped_shape(original_shape, target_shape):
 def reshape(x, shape):
     from tensor import Tensor
 
-    new_x = Tensor(tensor=x)
+    new_x = Tensor(tensor=x, requires_grad=True)
     new_x.shape = _calculate_reshaped_shape(x.shape, shape)
 
     DAGTracker.instance().add_node("reshape", [x, shape], [new_x])
@@ -437,4 +437,125 @@ def reshape_backward(output_grad, x, shape):
     input_grad = Tensor(tensor=output_grad)
     input_grad.shape = x.shape
 
-    return input_grad
+    return [input_grad]
+
+
+def _calculate_broadcast_shape(x_shape, y_shape):
+    if len(x_shape) < len(y_shape):
+        x_shape = (1,) * (len(y_shape) - len(x_shape)) + x_shape
+    elif len(x_shape) > len(y_shape):
+        y_shape = (1,) * (len(x_shape) - len(y_shape)) + y_shape
+    ans = []
+    for i, j in zip(x_shape, y_shape):
+        assert i == j or i == 1 or j == 1
+        ans.append(max(i, j))
+    return tuple(ans)
+
+
+def add(x, y, alpha=1):
+    from tensor import Tensor, CudaMemory
+
+    dag_tracker = DAGTracker.instance()
+
+    shape = _calculate_broadcast_shape(x.shape, y.shape)
+    output_tensor = Tensor(
+        dtype=x.dtype, shape=shape, device=x.device, requires_grad=True
+    )
+
+    if x.device.type == "cuda":
+        if x.dtype == np.float32:
+            func_name = "add_reference_fp32"
+        elif x.dtype == np.float16:
+            func_name = "add_reference_fp16"
+        else:
+            raise InvalidDataTypeError(x.dtype)
+        cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+        cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
+            "basic_ops.cu", func_name, x.device.index
+        )
+
+        x_shape_num_bytes = len(x.shape) * np.dtype(np.int32).itemsize
+        y_shape_num_bytes = len(y.shape) * np.dtype(np.int32).itemsize
+        cuda_mem = CudaMemory(x_shape_num_bytes + y_shape_num_bytes)
+        cuda_mem.write(np.array(list(x.shape) + list(y.shape), dtype=np.int32))
+        x_shape_ptr = int(cuda_mem.ptr)
+        y_shape_ptr = x_shape_ptr + x_shape_num_bytes
+
+        num_elements = np.prod(shape)
+        cuda_kernel.run(
+            ((num_elements + 255) // 256, 1, 1),
+            (256, 1, 1),
+            [
+                np.array(num_elements, dtype=np.int32),
+                np.array(len(x.shape), dtype=np.int32),
+                np.array(x_shape_ptr, dtype=np.uint64),
+                np.array(len(y.shape), dtype=np.int32),
+                np.array(y_shape_ptr, dtype=np.uint64),
+                x,
+                y,
+                np.array(alpha, dtype=x.dtype),
+                output_tensor,
+            ],
+        )
+
+    elif x.device.type == "cpu":
+        output_tensor.cpu_array = x.cpu_array + y.cpu_array
+
+    else:
+        raise InvalidDeviceError(x.device.type)
+
+    dag_tracker.add_node("add", [x, y, alpha], [output_tensor])
+
+    return output_tensor
+
+
+@DAGTracker.instance().register_backward_function("add")
+def add_backward(output_grad, x, y, alpha=1):
+    from tensor import Tensor, CudaMemory
+
+    x_grad = Tensor(dtype=x.dtype, shape=x.shape, device=x.device)
+    y_grad = Tensor(dtype=y.dtype, shape=y.shape, device=y.device)
+
+    if output_grad.device.type == "cuda":
+        if output_grad.dtype == np.float32:
+            func_name = "add_backward_reference_fp32"
+        elif output_grad.dtype == np.float16:
+            func_name = "add_backward_reference_fp16"
+        else:
+            raise InvalidDataTypeError(output_grad.dtype)
+        cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+        cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
+            "basic_ops.cu", func_name, output_grad.device.index
+        )
+
+        x_shape_num_bytes = len(x.shape) * np.dtype(np.int32).itemsize
+        y_shape_num_bytes = len(y.shape) * np.dtype(np.int32).itemsize
+        cuda_mem = CudaMemory(x_shape_num_bytes + y_shape_num_bytes)
+        cuda_mem.write(np.array(list(x.shape) + list(y.shape), dtype=np.int32))
+        x_shape_ptr = int(cuda_mem.ptr)
+        y_shape_ptr = x_shape_ptr + x_shape_num_bytes
+
+        num_elements = np.prod(output_grad.shape)
+        cuda_kernel.run(
+            ((num_elements + 255) // 256, 1, 1),
+            (256, 1, 1),
+            [
+                np.array(num_elements, dtype=np.int32),
+                np.array(len(x.shape), dtype=np.int32),
+                np.array(x_shape_ptr, dtype=np.uint64),
+                np.array(len(y.shape), dtype=np.int32),
+                np.array(y_shape_ptr, dtype=np.uint64),
+                np.array(alpha, dtype=x.dtype),
+                x_grad,
+                y_grad,
+                output_grad,
+            ],
+        )
+
+    elif output_grad.device.type == "cpu":
+        ...
+
+    else:
+        raise InvalidDeviceError(output_grad.device.type)
+
+    return [x_grad, y_grad]
