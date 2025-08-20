@@ -499,7 +499,7 @@ def add(x, y, alpha=1):
         )
 
     elif x.device.type == "cpu":
-        output_tensor.cpu_array = x.cpu_array + y.cpu_array
+        output_tensor.cpu_array = np.add(x.cpu_array, y.cpu_array * alpha)
 
     else:
         raise InvalidDeviceError(x.device.type)
@@ -553,8 +553,16 @@ def add_backward(output_grad, x, y, alpha=1):
         )
 
     elif output_grad.device.type == "cpu":
-        ...
-
+        x_shape = (1,) * (len(output_grad.shape) - len(x.shape)) + x.shape
+        x_axis = [i for i in range(len(x_shape)) if x_shape[i] < output_grad.shape[i]]
+        x_grad.cpu_array = output_grad.cpu_array.sum(
+            axis=tuple(x_axis), keepdims=True
+        ).reshape(x.shape)
+        y_shape = (1,) * (len(output_grad.shape) - len(y.shape)) + y.shape
+        y_axis = [i for i in range(len(y_shape)) if y_shape[i] < output_grad.shape[i]]
+        y_grad.cpu_array = (
+            output_grad.cpu_array.sum(axis=tuple(y_axis), keepdims=True) * alpha
+        ).reshape(y.shape)
     else:
         raise InvalidDeviceError(output_grad.device.type)
 
