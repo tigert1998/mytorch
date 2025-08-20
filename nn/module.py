@@ -20,3 +20,9 @@ class Module:
         if name in self._parameters:
             return self._parameters[name]
         return super().__getattr__(name)
+
+    def forward(self, *args, **kwargs):
+        raise NotImplementedError()
+
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)

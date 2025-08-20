@@ -385,3 +385,56 @@ def permute_backward(output_grad, x, permute_array):
         raise InvalidDeviceError(x.device.type)
 
     return [input_grad]
+
+
+def _calculate_reshaped_shape(original_shape, target_shape):
+    total_elements = np.prod(original_shape)
+    target_elements = 1
+    unknown_dim_index = None
+
+    for i, dim in enumerate(target_shape):
+        if dim == -1:
+            if unknown_dim_index is not None:
+                raise ValueError("can only specify one unknown dimension")
+            unknown_dim_index = i
+        else:
+            if dim <= 0:
+                raise ValueError("negative dimensions not allowed except -1")
+            target_elements *= dim
+
+    if unknown_dim_index is not None:
+        if total_elements % target_elements != 0:
+            raise ValueError(
+                f"cannot reshape array of size {total_elements} into shape {target_shape}"
+            )
+        unknown_dim = total_elements // target_elements
+        target_shape = list(target_shape)
+        target_shape[unknown_dim_index] = unknown_dim
+        return tuple(target_shape)
+    else:
+        if total_elements != target_elements:
+            raise ValueError(
+                f"cannot reshape array of size {total_elements} into shape {target_shape}"
+            )
+        return target_shape
+
+
+def reshape(x, shape):
+    from tensor import Tensor
+
+    new_x = Tensor(tensor=x)
+    new_x.shape = _calculate_reshaped_shape(x.shape, shape)
+
+    DAGTracker.instance().add_node("reshape", [x, shape], [new_x])
+
+    return new_x
+
+
+@DAGTracker.instance().register_backward_function("reshape")
+def reshape_backward(output_grad, x, shape):
+    from tensor import Tensor
+
+    input_grad = Tensor(tensor=output_grad)
+    input_grad.shape = x.shape
+
+    return input_grad
