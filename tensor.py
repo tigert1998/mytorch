@@ -3,7 +3,11 @@ from typing import Optional
 
 from cuda.bindings import driver
 
-from cuda.cuda_utils import check_cuda_errors, CudaContextManager
+from cuda.cuda_utils import (
+    check_cuda_errors,
+    CudaContextManager,
+    CudaKernelAndStreamManager,
+)
 from autograd import DAGTracker
 
 
@@ -183,10 +187,22 @@ class Tensor:
         if self.device.type == "cpu":
             self.cpu_array.fill(value)
         elif self.device.type == "cuda":
-            # TODO: use kernel function
-            array = self._read_cuda_memory()
-            array.fill(value)
-            self._write_cuda_memory(array)
+            if self.dtype == np.float32:
+                func_name = "fill_reference_fp32"
+            elif self.dtype == np.float16:
+                func_name = "fill_reference_fp16"
+            else:
+                raise InvalidDataTypeError(self.dtype)
+            cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+            cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
+                "basic_ops.cu", func_name, self.device.index
+            )
+            num_elements = np.prod(self.shape)
+            cuda_kernel.run(
+                ((num_elements + 255) // 256, 1, 1),
+                (256, 1, 1),
+                [np.array(num_elements), self, np.array(value, dtype=self.dtype)],
+            )
 
     def copy_(self, tensor):
         assert self.dtype == tensor.dtype and self.shape == tensor.shape

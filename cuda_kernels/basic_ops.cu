@@ -36,3 +36,19 @@ extern "C" __global__ void sum_backward_reference_fp16(int n, half* input,
                                                        half* output_grad) {
   sum_backward_reference(n, input, input_grad, output_grad);
 }
+
+template <typename T>
+__global__ void fill_reference(int n, T* input, T value) {
+  int xid = blockIdx.x * blockDim.x + threadIdx.x;
+  if (xid >= n) return;
+  input[xid] = value;
+}
+
+extern "C" __global__ void fill_reference_fp32(int n, float* input,
+                                               float value) {
+  fill_reference(n, input, value);
+}
+
+extern "C" __global__ void fill_reference_fp16(int n, half* input, half value) {
+  fill_reference(n, input, value);
+}

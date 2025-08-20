@@ -30,8 +30,8 @@ def sum(tensor):
         )
         num_elements = np.prod(tensor.shape)
         cuda_kernel.run(
-            ((num_elements + 31) // 32, 1, 1),
-            (32, 1, 1),
+            ((num_elements + 255) // 256, 1, 1),
+            (256, 1, 1),
             [np.array(num_elements), tensor, output_tensor],
         )
 
@@ -65,8 +65,8 @@ def sum_backward(output_grad, tensor):
         )
         num_elements = np.prod(tensor.shape)
         cuda_kernel.run(
-            ((num_elements + 31) // 32, 1, 1),
-            (32, 1, 1),
+            ((num_elements + 255) // 256, 1, 1),
+            (256, 1, 1),
             [np.array(num_elements), tensor, tensor_grad, output_grad],
         )
 
