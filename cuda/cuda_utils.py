@@ -310,6 +310,15 @@ class CublasLt:
         ]
         lib.cublasLtMatrixTransform.restype = ctypes.c_int
 
+        lib.cublasLtDestroy.argtypes = [ctypes.c_void_p]
+        lib.cublasLtDestroy.restype = ctypes.c_int
+
+        lib.cublasLtMatrixLayoutDestroy.argtypes = [ctypes.c_void_p]
+        lib.cublasLtMatrixLayoutDestroy.restype = ctypes.c_int
+
+        lib.cublasLtMatmulDescDestroy.argtypes = [ctypes.c_void_p]
+        lib.cublasLtMatmulDescDestroy.restype = ctypes.c_int
+
         self._lib = lib
 
         # cublasLtMatmulDescAttributes_t
@@ -441,6 +450,19 @@ class CublasLt:
         light_handle = np.array(0, dtype=np.uint64)
         self._check_cublas_errors(self._lib.cublasLtCreate(light_handle.ctypes.data))
         return light_handle
+
+    def destroy(self, light_handle: np.ndarray):
+        self._check_cublas_errors(self._lib.cublasLtDestroy(light_handle.item()))
+
+    def matrix_layout_destroy(self, mat_layout: np.ndarray):
+        self._check_cublas_errors(
+            self._lib.cublasLtMatrixLayoutDestroy(mat_layout.item())
+        )
+
+    def matmul_desc_destroy(self, matmul_desc: np.ndarray):
+        self._check_cublas_errors(
+            self._lib.cublasLtMatmulDescDestroy(matmul_desc.item())
+        )
 
     def matmul_desc_create(self, compute_type: int, scale_type: int) -> np.ndarray:
         matmul_desc = np.array(0, dtype=np.uint64)

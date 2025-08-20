@@ -79,73 +79,108 @@ def sum_backward(output_grad, tensor):
     return [tensor_grad]
 
 
+def _cuda_bmm(x, y, x_t: bool, y_t: bool, requires_grad):
+    from tensor import Tensor
+
+    cublas_lt = CublasLt.instance()
+
+    if x.dtype == np.float32:
+        compute_type = cublas_lt.CUBLAS_COMPUTE_32F
+        data_type = cublas_lt.CUDA_R_32F
+    elif x.dtype == np.float16:
+        compute_type = cublas_lt.CUBLAS_COMPUTE_16F
+        data_type = cublas_lt.CUDA_R_16F
+    else:
+        raise InvalidDataTypeError(x.dtype)
+
+    cuda_context_manager = CudaContextManager().instance()
+    cuda_context_manager.set_device(x.device.index)
+    cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+    stream = cuda_kernel_and_stream_manager.get_stream(x.device.index)
+
+    a_desc = cublas_lt.matrix_layout_create(
+        data_type, x.shape[1], x.shape[2], x.shape[2]
+    )
+    b_desc = cublas_lt.matrix_layout_create(
+        data_type, y.shape[1], y.shape[2], y.shape[2]
+    )
+    d_desc = cublas_lt.matrix_layout_create(
+        data_type, x.shape[1], y.shape[2], y.shape[2]
+    )
+    for desc in [a_desc, b_desc, d_desc]:
+        cublas_lt.matrix_layout_set_attribute(
+            desc,
+            cublas_lt.CUBLASLT_MATRIX_LAYOUT_ORDER,
+            np.array(cublas_lt.CUBLASLT_ORDER_ROW, np.int32),
+        )
+        cublas_lt.matrix_layout_set_attribute(
+            desc,
+            cublas_lt.CUBLASLT_MATRIX_LAYOUT_BATCH_COUNT,
+            np.array(x.shape[0], np.int32),
+        )
+
+    alpha = np.array(1, dtype=x.dtype)
+    beta = np.array(0, dtype=x.dtype)
+    handle = cublas_lt.create()
+    matmul_desc = cublas_lt.matmul_desc_create(compute_type, data_type)
+    if x_t:
+        cublas_lt.matmul_desc_set_attribute(
+            matmul_desc,
+            cublas_lt.CUBLASLT_MATMUL_DESC_TRANSA,
+            np.array(cublas_lt.CUBLAS_OP_T, np.int32),
+        )
+    if y_t:
+        cublas_lt.matmul_desc_set_attribute(
+            matmul_desc,
+            cublas_lt.CUBLASLT_MATMUL_DESC_TRANSB,
+            np.array(cublas_lt.CUBLAS_OP_T, np.int32),
+        )
+
+    z = Tensor(
+        shape=(x.shape[0], x.shape[1], y.shape[2]),
+        dtype=x.dtype,
+        device=x.device,
+        requires_grad=requires_grad,
+    )
+    cublas_lt.matmul(
+        handle,
+        matmul_desc,
+        alpha,
+        int(x.cuda_ptr.ptr),
+        a_desc,
+        int(y.cuda_ptr.ptr),
+        b_desc,
+        beta,
+        int(z.cuda_ptr.ptr),
+        d_desc,
+        int(z.cuda_ptr.ptr),
+        d_desc,
+        None,
+        0,
+        0,
+        stream,
+    )
+
+    for desc in [a_desc, b_desc, d_desc]:
+        cublas_lt.matrix_layout_destroy(desc)
+    cublas_lt.matmul_desc_destroy(matmul_desc)
+    cublas_lt.destroy(handle)
+
+    return z
+
+
 def mm(x, y):
     from tensor import Tensor
 
     assert x.device == y.device
 
     if x.device.type == "cuda":
-        cublas_lt = CublasLt.instance()
-
-        if x.dtype == np.float32:
-            compute_type = cublas_lt.CUBLAS_COMPUTE_32F
-            data_type = cublas_lt.CUDA_R_32F
-        elif x.dtype == np.float16:
-            compute_type = cublas_lt.CUBLAS_COMPUTE_16F
-            data_type = cublas_lt.CUDA_R_16F
-        else:
-            raise InvalidDataTypeError(x.dtype)
-
-        cuda_context_manager = CudaContextManager().instance()
-        cuda_context_manager.set_device(x.device.index)
-        cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
-        stream = cuda_kernel_and_stream_manager.get_stream(x.device.index)
-
-        a_desc = cublas_lt.matrix_layout_create(
-            data_type, x.shape[0], x.shape[1], x.shape[1]
-        )
-        b_desc = cublas_lt.matrix_layout_create(
-            data_type, y.shape[0], y.shape[1], y.shape[1]
-        )
-        d_desc = cublas_lt.matrix_layout_create(
-            data_type, x.shape[0], y.shape[1], y.shape[1]
-        )
-        for desc in [a_desc, b_desc, d_desc]:
-            cublas_lt.matrix_layout_set_attribute(
-                desc,
-                cublas_lt.CUBLASLT_MATRIX_LAYOUT_ORDER,
-                np.array(cublas_lt.CUBLASLT_ORDER_ROW, np.int32),
-            )
-
-        alpha = np.array(1, dtype=x.dtype)
-        beta = np.array(0, dtype=x.dtype)
-        handle = cublas_lt.create()
-        matmul_desc = cublas_lt.matmul_desc_create(compute_type, data_type)
-
-        z = Tensor(
-            shape=(x.shape[0], y.shape[1]),
-            dtype=x.dtype,
-            device=x.device,
-            requires_grad=True,
-        )
-        cublas_lt.matmul(
-            handle,
-            matmul_desc,
-            alpha,
-            int(x.cuda_ptr.ptr),
-            a_desc,
-            int(y.cuda_ptr.ptr),
-            b_desc,
-            beta,
-            int(z.cuda_ptr.ptr),
-            d_desc,
-            int(z.cuda_ptr.ptr),
-            d_desc,
-            None,
-            0,
-            0,
-            stream,
-        )
+        new_x = Tensor(tensor=x)
+        new_x.shape = (1, *new_x.shape)
+        new_y = Tensor(tensor=y)
+        new_y.shape = (1, *new_y.shape)
+        z = _cuda_bmm(new_x, new_y, False, False, True)
+        z.shape = z.shape[1:]
 
     elif x.device.type == "cpu":
         z_cpu_array = np.matmul(x.cpu_array, y.cpu_array)
@@ -166,94 +201,58 @@ def mm_backward(output_grad, x, y):
     assert output_grad.device == x.device and output_grad.device == y.device
 
     if x.device.type == "cuda":
-        cublas_lt = CublasLt.instance()
+        new_x = Tensor(tensor=x)
+        new_x.shape = (1, *new_x.shape)
+        new_y = Tensor(tensor=y)
+        new_y.shape = (1, *new_y.shape)
+        new_output_grad = Tensor(tensor=output_grad)
+        new_output_grad.shape = (1, *new_output_grad.shape)
+        x_grad = _cuda_bmm(new_output_grad, new_y, False, True, False)
+        y_grad = _cuda_bmm(new_x, new_output_grad, True, False, False)
+        x_grad.shape = x_grad.shape[1:]
+        y_grad.shape = y_grad.shape[1:]
 
-        if x.dtype == np.float32:
-            compute_type = cublas_lt.CUBLAS_COMPUTE_32F
-            data_type = cublas_lt.CUDA_R_32F
-        elif x.dtype == np.float16:
-            compute_type = cublas_lt.CUBLAS_COMPUTE_16F
-            data_type = cublas_lt.CUDA_R_16F
-        else:
-            raise InvalidDataTypeError(x.dtype)
+    elif x.device.type == "cpu":
+        x_grad_cpu_array = np.matmul(output_grad.cpu_array, y.cpu_array.T)
+        y_grad_cpu_array = np.matmul(x.cpu_array.T, output_grad.cpu_array)
+        x_grad = Tensor(cpu_array=x_grad_cpu_array, device="cpu")
+        y_grad = Tensor(cpu_array=y_grad_cpu_array, device="cpu")
 
-        cuda_context_manager = CudaContextManager().instance()
-        cuda_context_manager.set_device(x.device.index)
-        cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
-        stream = cuda_kernel_and_stream_manager.get_stream(x.device.index)
+    else:
+        raise InvalidDeviceError(x.device.type)
 
-        output_desc = cublas_lt.matrix_layout_create(
-            data_type, x.shape[0], y.shape[1], y.shape[1]
-        )
-        x_desc = cublas_lt.matrix_layout_create(
-            data_type, x.shape[0], x.shape[1], x.shape[1]
-        )
-        y_desc = cublas_lt.matrix_layout_create(
-            data_type, y.shape[0], y.shape[1], y.shape[1]
-        )
-        for desc in [output_desc, x_desc, y_desc]:
-            cublas_lt.matrix_layout_set_attribute(
-                desc,
-                cublas_lt.CUBLASLT_MATRIX_LAYOUT_ORDER,
-                np.array(cublas_lt.CUBLASLT_ORDER_ROW, np.int32),
-            )
+    return [x_grad, y_grad]
 
-        alpha = np.array(1, dtype=x.dtype)
-        beta = np.array(0, dtype=x.dtype)
 
-        handle = cublas_lt.create()
+def bmm(x, y):
+    from tensor import Tensor
 
-        x_grad_matmul_desc = cublas_lt.matmul_desc_create(compute_type, data_type)
-        cublas_lt.matmul_desc_set_attribute(
-            x_grad_matmul_desc,
-            cublas_lt.CUBLASLT_MATMUL_DESC_TRANSB,
-            np.array(cublas_lt.CUBLAS_OP_T, np.int32),
-        )
-        x_grad = Tensor(shape=(x.shape[0], x.shape[1]), dtype=x.dtype, device=x.device)
-        cublas_lt.matmul(
-            handle,
-            x_grad_matmul_desc,
-            alpha,
-            int(output_grad.cuda_ptr.ptr),
-            output_desc,
-            int(y.cuda_ptr.ptr),
-            y_desc,
-            beta,
-            int(x_grad.cuda_ptr.ptr),
-            x_desc,
-            int(x_grad.cuda_ptr.ptr),
-            x_desc,
-            None,
-            0,
-            0,
-            stream,
-        )
+    assert x.device == y.device
 
-        y_grad_matmul_desc = cublas_lt.matmul_desc_create(compute_type, data_type)
-        cublas_lt.matmul_desc_set_attribute(
-            y_grad_matmul_desc,
-            cublas_lt.CUBLASLT_MATMUL_DESC_TRANSA,
-            np.array(cublas_lt.CUBLAS_OP_T, np.int32),
-        )
-        y_grad = Tensor(shape=(y.shape[0], y.shape[1]), dtype=y.dtype, device=y.device)
-        cublas_lt.matmul(
-            handle,
-            y_grad_matmul_desc,
-            alpha,
-            int(x.cuda_ptr.ptr),
-            x_desc,
-            int(output_grad.cuda_ptr.ptr),
-            output_desc,
-            beta,
-            int(y_grad.cuda_ptr.ptr),
-            y_desc,
-            int(y_grad.cuda_ptr.ptr),
-            y_desc,
-            None,
-            0,
-            0,
-            stream,
-        )
+    if x.device.type == "cuda":
+        z = _cuda_bmm(x, y, False, False, True)
+
+    elif x.device.type == "cpu":
+        z_cpu_array = np.matmul(x.cpu_array, y.cpu_array)
+        z = Tensor(cpu_array=z_cpu_array, device="cpu", requires_grad=True)
+
+    else:
+        raise InvalidDeviceError(x.device.type)
+
+    DAGTracker.instance().add_node("bmm", [x, y], [z])
+
+    return z
+
+
+@DAGTracker.instance().register_backward_function("bmm")
+def bmm_backward(output_grad, x, y):
+    from tensor import Tensor
+
+    assert output_grad.device == x.device and output_grad.device == y.device
+
+    if x.device.type == "cuda":
+        x_grad = _cuda_bmm(output_grad, y, False, True, False)
+        y_grad = _cuda_bmm(x, output_grad, True, False, False)
 
     elif x.device.type == "cpu":
         x_grad_cpu_array = np.matmul(output_grad.cpu_array, y.cpu_array.T)
