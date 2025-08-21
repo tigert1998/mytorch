@@ -27,6 +27,7 @@ def conv2d(input, weight, bias=None, stride=1, padding=0):
             device=input.device,
             requires_grad=True,
         )
+        tensor.fill_(0)
         cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
         assert input.dtype == weight.dtype and (
             bias is None or input.dtype == bias.dtype

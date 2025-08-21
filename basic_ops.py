@@ -17,6 +17,7 @@ def sum(tensor):
     output_tensor = Tensor(
         dtype=tensor.dtype, shape=(1,), device=tensor.device, requires_grad=True
     )
+    output_tensor.fill_(0)
 
     if tensor.device.type == "cuda":
         if tensor.dtype == np.float32:
@@ -514,7 +515,9 @@ def add_backward(output_grad, x, y, alpha=1):
     from tensor import Tensor, CudaMemory
 
     x_grad = Tensor(dtype=x.dtype, shape=x.shape, device=x.device)
+    x_grad.fill_(0)
     y_grad = Tensor(dtype=y.dtype, shape=y.shape, device=y.device)
+    y_grad.fill_(0)
 
     if output_grad.device.type == "cuda":
         if output_grad.dtype == np.float32:

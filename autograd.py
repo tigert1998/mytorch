@@ -88,9 +88,9 @@ class DAGTracker:
         for node, idx in order:
             backward_func = self._backward_funcs[node]
             output_tensors = self._node_outputs[(node, idx)]
+            output_tensor_grads = [tensor.grad for tensor in output_tensors]
             input_tensors_grads = backward_func(
-                *[tensor.grad for tensor in output_tensors],
-                *self._node_inputs[(node, idx)]
+                *output_tensor_grads, *self._node_inputs[(node, idx)]
             )
             for input_tensor, grad in zip(
                 self._node_inputs[(node, idx)], input_tensors_grads
