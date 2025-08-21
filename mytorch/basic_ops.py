@@ -1,16 +1,16 @@
 import numpy as np
 
-from tensor import InvalidDataTypeError, InvalidDeviceError
-from cuda.cuda_utils import (
+from mytorch.tensor import InvalidDataTypeError, InvalidDeviceError
+from mytorch.cuda.cuda_utils import (
     CudaKernelAndStreamManager,
     CublasLt,
     CudaContextManager,
 )
-from autograd import DAGTracker
+from mytorch.autograd import DAGTracker
 
 
 def sum(tensor):
-    from tensor import Tensor
+    from mytorch.tensor import Tensor
 
     dag_tracker = DAGTracker.instance()
 
@@ -50,7 +50,7 @@ def sum(tensor):
 
 @DAGTracker.instance().register_backward_function("sum")
 def sum_backward(output_grad, tensor):
-    from tensor import Tensor
+    from mytorch.tensor import Tensor
 
     tensor_grad = Tensor(shape=tensor.shape, dtype=tensor.dtype, device=tensor.device)
 
@@ -82,7 +82,7 @@ def sum_backward(output_grad, tensor):
 
 
 def _cuda_bmm(x, y, x_t: bool, y_t: bool, requires_grad):
-    from tensor import Tensor
+    from mytorch.tensor import Tensor
 
     cublas_lt = CublasLt.instance()
 
@@ -172,7 +172,7 @@ def _cuda_bmm(x, y, x_t: bool, y_t: bool, requires_grad):
 
 
 def mm(x, y):
-    from tensor import Tensor
+    from mytorch.tensor import Tensor
 
     assert x.device == y.device
 
@@ -198,7 +198,7 @@ def mm(x, y):
 
 @DAGTracker.instance().register_backward_function("mm")
 def mm_backward(output_grad, x, y):
-    from tensor import Tensor
+    from mytorch.tensor import Tensor
 
     assert output_grad.device == x.device and output_grad.device == y.device
 
@@ -227,7 +227,7 @@ def mm_backward(output_grad, x, y):
 
 
 def bmm(x, y):
-    from tensor import Tensor
+    from mytorch.tensor import Tensor
 
     assert x.device == y.device
 
@@ -248,7 +248,7 @@ def bmm(x, y):
 
 @DAGTracker.instance().register_backward_function("bmm")
 def bmm_backward(output_grad, x, y):
-    from tensor import Tensor
+    from mytorch.tensor import Tensor
 
     assert output_grad.device == x.device and output_grad.device == y.device
 
@@ -271,7 +271,7 @@ def bmm_backward(output_grad, x, y):
 def permute(x, permute_array):
     permute_array = [(i + len(permute_array) if i < 0 else i) for i in permute_array]
 
-    from tensor import Tensor, CudaMemory
+    from mytorch.tensor import Tensor, CudaMemory
 
     if x.device.type == "cuda":
         if x.dtype == np.float32:
@@ -329,7 +329,7 @@ def permute(x, permute_array):
 
 @DAGTracker.instance().register_backward_function("permute")
 def permute_backward(output_grad, x, permute_array):
-    from tensor import Tensor, CudaMemory
+    from mytorch.tensor import Tensor, CudaMemory
 
     permute_array = [(i + len(permute_array) if i < 0 else i) for i in permute_array]
 
@@ -421,7 +421,7 @@ def _calculate_reshaped_shape(original_shape, target_shape):
 
 
 def reshape(x, shape):
-    from tensor import Tensor
+    from mytorch.tensor import Tensor
 
     new_x = Tensor(tensor=x, requires_grad=True)
     new_x.shape = _calculate_reshaped_shape(x.shape, shape)
@@ -433,7 +433,7 @@ def reshape(x, shape):
 
 @DAGTracker.instance().register_backward_function("reshape")
 def reshape_backward(output_grad, x, shape):
-    from tensor import Tensor
+    from mytorch.tensor import Tensor
 
     input_grad = Tensor(tensor=output_grad)
     input_grad.shape = x.shape
@@ -455,7 +455,7 @@ def _calculate_broadcast_shape(x_shape, y_shape):
 
 def broadcast_binary_opeartion(name, default_alpha, forward_op_cpu, backward_op_cpu):
     def forward(x, y, **kwargs):
-        from tensor import Tensor, CudaMemory
+        from mytorch.tensor import Tensor, CudaMemory
 
         dag_tracker = DAGTracker.instance()
 
@@ -522,7 +522,7 @@ def broadcast_binary_opeartion(name, default_alpha, forward_op_cpu, backward_op_
 
     @DAGTracker.instance().register_backward_function(name)
     def backward(output_grad, x, y, alpha):
-        from tensor import Tensor, CudaMemory
+        from mytorch.tensor import Tensor, CudaMemory
 
         x_grad = Tensor(dtype=x.dtype, shape=x.shape, device=x.device)
         x_grad.fill_(0)

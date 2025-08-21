@@ -1,6 +1,6 @@
 from typing import List, Dict, Any
 
-from tensor import Tensor
+from mytorch.tensor import Tensor
 
 
 class Optimizer:

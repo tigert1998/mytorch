@@ -1,7 +1,8 @@
 import numpy as np
-from nn.module import Module
-from nn.parameter import Parameter, Tensor
-from nn.functional.conv import conv2d
+
+from mytorch.nn.module import Module
+from mytorch.nn.parameter import Parameter, Tensor
+from mytorch.nn.functional.conv import conv2d
 
 
 class Conv2d(Module):

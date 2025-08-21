@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from nn.linear import Linear
-from optim.sgd import SGD
-from tensor import Tensor
+from mytorch.nn.linear import Linear
+from mytorch.optim.sgd import SGD
+from mytorch.tensor import Tensor
 
 
 def make_data(batch_size):

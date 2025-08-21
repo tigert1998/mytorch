@@ -39,7 +39,7 @@ class DAGTracker:
         self._node_outputs[node] = output_tensors
 
     def _topological_sort(self, tensor):
-        from tensor import Tensor
+        from mytorch.tensor import Tensor
 
         ref_counts = {}
         for node in self._tensor_node.values():
@@ -76,7 +76,7 @@ class DAGTracker:
         return ans
 
     def backward(self, tensor):
-        from tensor import Tensor
+        from mytorch.tensor import Tensor
 
         assert np.prod(tensor.shape) == 1
         tensor.grad = Tensor(

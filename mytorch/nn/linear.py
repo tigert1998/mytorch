@@ -1,9 +1,9 @@
 import numpy as np
 
-from nn.module import Module
-from nn.parameter import Parameter
-from tensor import Tensor
-from basic_ops import mm, reshape, permute, add
+from mytorch.nn.module import Module
+from mytorch.nn.parameter import Parameter
+from mytorch.tensor import Tensor
+from mytorch.basic_ops import mm, reshape, permute, add
 
 
 class Linear(Module):

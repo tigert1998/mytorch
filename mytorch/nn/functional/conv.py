@@ -1,8 +1,8 @@
 import numpy as np
 
-from autograd import DAGTracker
-from tensor import Tensor, InvalidDeviceError, InvalidDataTypeError
-from cuda.cuda_utils import CudaKernelAndStreamManager
+from mytorch.autograd import DAGTracker
+from mytorch.tensor import Tensor, InvalidDeviceError, InvalidDataTypeError
+from mytorch.cuda.cuda_utils import CudaKernelAndStreamManager
 
 
 def conv2d(input, weight, bias=None, stride=1, padding=0):

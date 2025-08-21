@@ -3,12 +3,12 @@ from typing import Optional
 
 from cuda.bindings import driver
 
-from cuda.cuda_utils import (
+from mytorch.cuda.cuda_utils import (
     check_cuda_errors,
     CudaContextManager,
     CudaKernelAndStreamManager,
 )
-from autograd import DAGTracker
+from mytorch.autograd import DAGTracker
 
 
 class InvalidDeviceError(RuntimeError):
@@ -224,7 +224,7 @@ class Tensor:
                 )
 
     def sum(self):
-        from basic_ops import sum as func
+        from mytorch.basic_ops import sum as func
 
         return func(self)
 
@@ -245,52 +245,52 @@ class Tensor:
         return other
 
     def __add__(self, other):
-        from basic_ops import add
+        from mytorch.basic_ops import add
 
         return add(self, self._cast_other_to_tensor(other))
 
     def __radd__(self, other):
-        from basic_ops import add
+        from mytorch.basic_ops import add
 
         return add(self._cast_other_to_tensor(other), self)
 
     def __sub__(self, other):
-        from basic_ops import sub
+        from mytorch.basic_ops import sub
 
         return sub(self, self._cast_other_to_tensor(other))
 
     def __rsub__(self, other):
-        from basic_ops import sub
+        from mytorch.basic_ops import sub
 
         return sub(self._cast_other_to_tensor(other), self)
 
     def __mul__(self, other):
-        from basic_ops import mul
+        from mytorch.basic_ops import mul
 
         return mul(self, self._cast_other_to_tensor(other))
 
     def __rmul__(self, other):
-        from basic_ops import mul
+        from mytorch.basic_ops import mul
 
         return mul(self._cast_other_to_tensor(other), self)
 
     def __truediv__(self, other):
-        from basic_ops import div
+        from mytorch.basic_ops import div
 
         return div(self, self._cast_other_to_tensor(other))
 
     def __rtruediv__(self, other):
-        from basic_ops import div
+        from mytorch.basic_ops import div
 
         return div(self._cast_other_to_tensor(other), self)
 
     def __pow__(self, other):
-        from basic_ops import pow
+        from mytorch.basic_ops import pow
 
         return pow(self, self._cast_other_to_tensor(other))
 
     def __rpow__(self, other):
-        from basic_ops import pow
+        from mytorch.basic_ops import pow
 
         return pow(self._cast_other_to_tensor(other), self)
 

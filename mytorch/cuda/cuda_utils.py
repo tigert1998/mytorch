@@ -139,7 +139,7 @@ class CudaKernel:
         self.stream = stream
 
     def _prepare_args(self, args):
-        from tensor import Tensor
+        from mytorch.tensor import Tensor
 
         np_args = []
         for arg in args:
@@ -208,7 +208,8 @@ class CudaKernelAndStreamManager:
         stream.set_device()
         if self._modules.get(device_id, {}).get(cu_file_path) is None:
             ptx = self._cuda_compiler.compile(
-                osp.join("cuda_kernels", cu_file_path), device_id
+                osp.join(osp.dirname(__file__), "../cuda_kernels", cu_file_path),
+                device_id,
             )
             if self._modules.get(device_id) is None:
                 self._modules[device_id] = {}

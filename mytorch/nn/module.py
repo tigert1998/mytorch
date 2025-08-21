@@ -1,6 +1,6 @@
 from typing import Optional
 
-from nn.parameter import Parameter
+from mytorch.nn.parameter import Parameter
 
 
 class Module:

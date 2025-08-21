@@ -1,8 +1,8 @@
 import numpy as np
 
-from optim.optimizer import Optimizer
-from tensor import Tensor, InvalidDataTypeError, InvalidDeviceError
-from cuda.cuda_utils import CudaKernelAndStreamManager
+from mytorch.optim.optimizer import Optimizer
+from mytorch.tensor import Tensor, InvalidDataTypeError, InvalidDeviceError
+from mytorch.cuda.cuda_utils import CudaKernelAndStreamManager
 
 
 class SGD(Optimizer):
