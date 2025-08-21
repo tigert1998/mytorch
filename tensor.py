@@ -228,6 +228,26 @@ class Tensor:
 
         return func(self)
 
+    def __add__(self, other):
+        from basic_ops import add
+
+        return add(self, other)
+
+    def __sub__(self, other):
+        from basic_ops import sub
+
+        return sub(self, other)
+
+    def __mul__(self, other):
+        from basic_ops import mul
+
+        return mul(self, other)
+
+    def __truediv__(self, other):
+        from basic_ops import div
+
+        return div(self, other)
+
     def backward(self):
         instance = DAGTracker.instance()
         instance.backward(self)

@@ -169,56 +169,88 @@ __device__ int2 broadcast(int idx, int x_shape_n, int* x_shape, int y_shape_n,
   return {x, y};
 }
 
-template <typename T>
-__global__ void add_reference(int n, int x_shape_n, int* x_shape, int y_shape_n,
-                              int* y_shape, T* x, T* y, T alpha, T* output) {
-  int xid = blockIdx.x * blockDim.x + threadIdx.x;
-  if (xid >= n) return;
+#define BROADCAST_BINARY_OPERATION(name, arg_type, arg, op, op_backward)       \
+  template <typename T>                                                        \
+  __global__ void name##_reference(int n, int x_shape_n, int* x_shape,         \
+                                   int y_shape_n, int* y_shape, T* x, T* y,    \
+                                   arg_type(T) T* output) {                    \
+    int xid = blockIdx.x * blockDim.x + threadIdx.x;                           \
+    if (xid >= n) return;                                                      \
+    int2 pair = broadcast(xid, x_shape_n, x_shape, y_shape_n, y_shape);        \
+    output[xid] = op();                                                        \
+  }                                                                            \
+  extern "C" __global__ void name##_reference_fp32(                            \
+      int n, int x_shape_n, int* x_shape, int y_shape_n, int* y_shape,         \
+      float* x, float* y, arg_type(float) float* output) {                     \
+    name##_reference<float>(n, x_shape_n, x_shape, y_shape_n, y_shape, x, y,   \
+                            arg() output);                                     \
+  }                                                                            \
+  extern "C" __global__ void name##_reference_fp16(                            \
+      int n, int x_shape_n, int* x_shape, int y_shape_n, int* y_shape,         \
+      half* x, half* y, arg_type(half) half* output) {                         \
+    name##_reference<half>(n, x_shape_n, x_shape, y_shape_n, y_shape, x, y,    \
+                           arg() output);                                      \
+  }                                                                            \
+  template <typename T>                                                        \
+  __global__ void name##_backward_reference(                                   \
+      int n, int x_shape_n, int* x_shape, int y_shape_n, int* y_shape, T* x,   \
+      T* y, arg_type(T) T* x_grad, T* y_grad, T* output_grad) {                \
+    int xid = blockIdx.x * blockDim.x + threadIdx.x;                           \
+    if (xid >= n) return;                                                      \
+    int2 pair = broadcast(xid, x_shape_n, x_shape, y_shape_n, y_shape);        \
+    op_backward();                                                             \
+  }                                                                            \
+  extern "C" __global__ void name##_backward_reference_fp32(                   \
+      int n, int x_shape_n, int* x_shape, int y_shape_n, int* y_shape,         \
+      float* x, float* y, arg_type(float) float* x_grad, float* y_grad,        \
+      float* output_grad) {                                                    \
+    name##_backward_reference(n, x_shape_n, x_shape, y_shape_n, y_shape, x, y, \
+                              arg() x_grad, y_grad, output_grad);              \
+  }                                                                            \
+  extern "C" __global__ void name##_backward_reference_fp16(                   \
+      int n, int x_shape_n, int* x_shape, int y_shape_n, int* y_shape,         \
+      half* x, half* y, arg_type(half) half* x_grad, half* y_grad,             \
+      half* output_grad) {                                                     \
+    name##_backward_reference(n, x_shape_n, x_shape, y_shape_n, y_shape, x, y, \
+                              arg() x_grad, y_grad, output_grad);              \
+  }
 
-  int2 pair = broadcast(xid, x_shape_n, x_shape, y_shape_n, y_shape);
+#define ALPHA_ARG_TYPE(T) T alpha,
+#define ALPHA_ARG() alpha,
+#define NO_ARG_TYPE(T)
+#define NO_ARG()
 
-  output[xid] = x[pair.x] + y[pair.y] * alpha;
-}
+#define ADD_WITH_ALPHA() (x[pair.x] + y[pair.y] * alpha)
+#define ADD_WITH_ALPHA_BACKWARD()                         \
+  do {                                                    \
+    atomicAdd(&x_grad[pair.x], output_grad[xid]);         \
+    atomicAdd(&y_grad[pair.y], output_grad[xid] * alpha); \
+  } while (0)
+BROADCAST_BINARY_OPERATION(add, ALPHA_ARG_TYPE, ALPHA_ARG, ADD_WITH_ALPHA,
+                           ADD_WITH_ALPHA_BACKWARD)
 
-extern "C" __global__ void add_reference_fp32(int n, int x_shape_n,
-                                              int* x_shape, int y_shape_n,
-                                              int* y_shape, float* x, float* y,
-                                              float alpha, float* output) {
-  add_reference<float>(n, x_shape_n, x_shape, y_shape_n, y_shape, x, y, alpha,
-                       output);
-}
+#define SUB_WITH_ALPHA() (x[pair.x] - y[pair.y] * alpha)
+#define SUB_WITH_ALPHA_BACKWARD()                          \
+  do {                                                     \
+    atomicAdd(&x_grad[pair.x], output_grad[xid]);          \
+    atomicAdd(&y_grad[pair.y], -output_grad[xid] * alpha); \
+  } while (0)
+BROADCAST_BINARY_OPERATION(sub, ALPHA_ARG_TYPE, ALPHA_ARG, SUB_WITH_ALPHA,
+                           SUB_WITH_ALPHA_BACKWARD)
 
-extern "C" __global__ void add_reference_fp16(int n, int x_shape_n,
-                                              int* x_shape, int y_shape_n,
-                                              int* y_shape, half* x, half* y,
-                                              half alpha, half* output) {
-  add_reference<half>(n, x_shape_n, x_shape, y_shape_n, y_shape, x, y, alpha,
-                      output);
-}
+#define MUL() (x[pair.x] * y[pair.y])
+#define MUL_BACKWARD()                                        \
+  do {                                                        \
+    atomicAdd(&x_grad[pair.x], output_grad[xid] * y[pair.y]); \
+    atomicAdd(&y_grad[pair.y], output_grad[xid] * x[pair.x]); \
+  } while (0)
+BROADCAST_BINARY_OPERATION(mul, NO_ARG_TYPE, NO_ARG, MUL, MUL_BACKWARD)
 
-template <typename T>
-__global__ void add_backward_reference(int n, int x_shape_n, int* x_shape,
-                                       int y_shape_n, int* y_shape, T alpha,
-                                       T* x_grad, T* y_grad, T* output_grad) {
-  int xid = blockIdx.x * blockDim.x + threadIdx.x;
-  if (xid >= n) return;
-
-  int2 pair = broadcast(xid, x_shape_n, x_shape, y_shape_n, y_shape);
-
-  atomicAdd(&x_grad[pair.x], output_grad[xid]);
-  atomicAdd(&y_grad[pair.y], output_grad[xid] * alpha);
-}
-
-extern "C" __global__ void add_backward_reference_fp32(
-    int n, int x_shape_n, int* x_shape, int y_shape_n, int* y_shape,
-    float alpha, float* x_grad, float* y_grad, float* output_grad) {
-  add_backward_reference(n, x_shape_n, x_shape, y_shape_n, y_shape, alpha,
-                         x_grad, y_grad, output_grad);
-}
-
-extern "C" __global__ void add_backward_reference_fp16(
-    int n, int x_shape_n, int* x_shape, int y_shape_n, int* y_shape, half alpha,
-    half* x_grad, half* y_grad, half* output_grad) {
-  add_backward_reference(n, x_shape_n, x_shape, y_shape_n, y_shape, alpha,
-                         x_grad, y_grad, output_grad);
-}
+#define DIV() (x[pair.x] / y[pair.y])
+#define DIV_BACKWARD()                                                 \
+  do {                                                                 \
+    atomicAdd(&x_grad[pair.x], output_grad[xid] / y[pair.y]);          \
+    atomicAdd(&y_grad[pair.y],                                         \
+              output_grad[xid] * (-x[pair.x] / (T)pow(y[pair.y], 2))); \
+  } while (0)
+BROADCAST_BINARY_OPERATION(div, NO_ARG_TYPE, NO_ARG, DIV, DIV_BACKWARD)
