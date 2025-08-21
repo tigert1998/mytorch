@@ -819,3 +819,52 @@ def _pow_backward_op_cpu(x, y, output_grad):
 pow, pow_backward = broadcast_binary_opeartion(
     "pow", None, _pow_forward_op_cpu, _pow_backward_op_cpu
 )
+
+
+def _copy(x, y):
+    shape = _calculate_broadcast_shape(x.shape, y.shape)
+    assert shape == x.shape
+
+    if x.device.type == "cuda":
+        if x.dtype == np.float32:
+            func_name = f"copy_reference_fp32"
+        elif x.dtype == np.float16:
+            func_name = f"copy_reference_fp16"
+        else:
+            raise InvalidDataTypeError(x.dtype)
+        cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
+        cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
+            "basic_ops.cu", func_name, x.device.index
+        )
+
+        x_shape_num_bytes = len(x.shape) * np.dtype(np.int32).itemsize
+        y_shape_num_bytes = len(y.shape) * np.dtype(np.int32).itemsize
+        if x_shape_num_bytes + y_shape_num_bytes > 0:
+            cuda_mem = CudaMemory(x_shape_num_bytes + y_shape_num_bytes)
+            cuda_mem.write(np.array(list(x.shape) + list(y.shape), dtype=np.int32))
+            x_shape_ptr = int(cuda_mem.ptr)
+            y_shape_ptr = x_shape_ptr + x_shape_num_bytes
+        else:
+            x_shape_ptr = y_shape_ptr = 0
+
+        num_elements = shape_size(shape)
+        cuda_kernel.run(
+            ((num_elements + 255) // 256, 1, 1),
+            (256, 1, 1),
+            [
+                np.array(num_elements, dtype=np.int32),
+                np.array(len(x.shape), dtype=np.int32),
+                np.array(x_shape_ptr, dtype=np.uint64),
+                np.array(len(y.shape), dtype=np.int32),
+                np.array(y_shape_ptr, dtype=np.uint64),
+                np.array(0, dtype=np.uint64),
+                y,
+                x,
+            ],
+        )
+
+    elif x.device.type == "cpu":
+        np.copyto(x.cpu_array, y.cpu_array)
+
+    else:
+        raise InvalidDeviceError(x.device.type)

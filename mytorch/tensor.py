@@ -212,25 +212,10 @@ class Tensor:
             )
 
     def copy_(self, tensor):
-        assert self.dtype == tensor.dtype and self.shape == tensor.shape
-        if self.device.type == "cpu":
-            if tensor.device.type == "cpu":
-                self.cpu_array = tensor.cpu_array
-            elif tensor.device.type == "cuda":
-                self.cpu_array = tensor._read_cuda_memory()
-        elif self.device.type == "cuda":
-            if tensor.device.type == "cpu":
-                self._write_cuda_memory(tensor.cpu_array)
-            elif tensor.device.type == "cuda":
-                check_cuda_errors(
-                    driver.cuMemcpyPeer(
-                        self.cuda_ptr.ptr,
-                        check_cuda_errors(driver.cuDeviceGet(self.device.index)),
-                        tensor.cuda_ptr.ptr,
-                        check_cuda_errors(driver.cuDeviceGet(tensor.device.index)),
-                        np.dtype(self.dtype).itemsize * shape_size(self.shape),
-                    )
-                )
+        from mytorch.basic_ops import _copy
+
+        assert isinstance(tensor, Tensor) and self.dtype == tensor.dtype
+        _copy(self, tensor.to(self.device))
 
     def sum(self, dim=None, keepdim=False):
         from mytorch.basic_ops import sum as func

@@ -4,8 +4,6 @@ import os.path as osp
 
 from cuda.bindings import driver, nvrtc
 
-from mytorch.cuda.memory_allocator import SimpleCudaMemoryAllocator
-
 
 def _cuda_get_error_enum(error):
     if isinstance(error, driver.CUresult):
@@ -211,6 +209,8 @@ class CudaEnv:
         return cls._instance
 
     def __init__(self):
+        from mytorch.cuda.memory_allocator import SimpleCudaMemoryAllocator
+
         self.context_manager = CudaContextManager()
         self.compiler = CudaCompiler(self.context_manager)
         self.kernel_and_stream_manager = CudaKernelAndStreamManager(

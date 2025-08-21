@@ -1,6 +1,7 @@
 import numpy as np
 
 from cuda.bindings import driver
+from mytorch.cuda.env import check_cuda_errors
 
 
 class SimpleCudaMemoryAllocator:
@@ -37,11 +38,7 @@ class SimpleCudaMemoryAllocator:
         self.empty_cache()
 
     def _internal_cuda_allocate(self, size):
-        from mytorch.cuda.env import check_cuda_errors
-
         return check_cuda_errors(driver.cuMemAlloc(size))
 
     def _internal_cuda_deallocate(self, ptr):
-        from mytorch.cuda.env import check_cuda_errors
-
         check_cuda_errors(driver.cuMemFree(ptr))
