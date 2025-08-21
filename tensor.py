@@ -228,30 +228,71 @@ class Tensor:
 
         return func(self)
 
+    def _cast_other_to_tensor(self, other):
+        import numbers
+
+        if isinstance(other, numbers.Number):
+            other = Tensor(
+                cpu_array=np.array(other, dtype=self.dtype), device=self.device
+            )
+        elif isinstance(other, np.ndarray):
+            other = Tensor(cpu_array=other.astype(self.dtype), device=self.device)
+        elif isinstance(other, Tensor):
+            pass
+        else:
+            raise InvalidDataTypeError(type(other))
+
+        return other
+
     def __add__(self, other):
         from basic_ops import add
 
-        return add(self, other)
+        return add(self, self._cast_other_to_tensor(other))
+
+    def __radd__(self, other):
+        from basic_ops import add
+
+        return add(self._cast_other_to_tensor(other), self)
 
     def __sub__(self, other):
         from basic_ops import sub
 
-        return sub(self, other)
+        return sub(self, self._cast_other_to_tensor(other))
+
+    def __rsub__(self, other):
+        from basic_ops import sub
+
+        return sub(self._cast_other_to_tensor(other), self)
 
     def __mul__(self, other):
         from basic_ops import mul
 
-        return mul(self, other)
+        return mul(self, self._cast_other_to_tensor(other))
+
+    def __rmul__(self, other):
+        from basic_ops import mul
+
+        return mul(self._cast_other_to_tensor(other), self)
 
     def __truediv__(self, other):
         from basic_ops import div
 
-        return div(self, other)
+        return div(self, self._cast_other_to_tensor(other))
+
+    def __rtruediv__(self, other):
+        from basic_ops import div
+
+        return div(self._cast_other_to_tensor(other), self)
 
     def __pow__(self, other):
         from basic_ops import pow
 
-        return pow(self, other)
+        return pow(self, self._cast_other_to_tensor(other))
+
+    def __rpow__(self, other):
+        from basic_ops import pow
+
+        return pow(self._cast_other_to_tensor(other), self)
 
     def backward(self):
         instance = DAGTracker.instance()

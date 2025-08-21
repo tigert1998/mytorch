@@ -22,15 +22,13 @@ def linear_regression(x, y, device):
         cpu_array=x.astype(np.float32).reshape((-1, 1)), device=device
     )
     ans = Tensor(cpu_array=y.astype(np.float32).reshape((len(x), 1)), device=device)
-    _2 = Tensor(cpu_array=np.array(2, dtype=np.float32), device=device)
-    batch_size = Tensor(cpu_array=np.array(len(x), dtype=np.float32), device=device)
 
     for i in range(500):
         optimizer.zero_grad()
         output_tensor = linear(input_tensor)
         minus = output_tensor - ans
-        power2 = minus**_2
-        loss = power2.sum() / batch_size
+        power2 = minus**2
+        loss = power2.sum() / len(x)
         loss.backward()
         optimizer.step()
 
