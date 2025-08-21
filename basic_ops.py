@@ -706,3 +706,42 @@ def _div_backward_op_cpu(x, y, output_grad):
 div, div_backward = broadcast_binary_opeartion(
     "div", None, _div_forward_op_cpu, _div_backward_op_cpu
 )
+
+
+def _pow_forward_op_cpu(x, y):
+    return np.power(x.cpu_array, y.cpu_array)
+
+
+def _pow_backward_op_cpu(x, y, output_grad):
+    x_shape = (1,) * (len(output_grad.shape) - len(x.shape)) + x.shape
+    x_axis = [i for i in range(len(x_shape)) if x_shape[i] < output_grad.shape[i]]
+    x_tile_reps = [
+        output_grad.shape[i] if x_shape[i] < output_grad.shape[i] else 1
+        for i in range(len(x_shape))
+    ]
+    y_shape = (1,) * (len(output_grad.shape) - len(y.shape)) + y.shape
+    y_axis = [i for i in range(len(y_shape)) if y_shape[i] < output_grad.shape[i]]
+    y_tile_reps = [
+        output_grad.shape[i] if y_shape[i] < output_grad.shape[i] else 1
+        for i in range(len(y_shape))
+    ]
+
+    x_tile = np.tile(x.cpu_array, x_tile_reps)
+    y_tile = np.tile(y.cpu_array, y_tile_reps)
+    x_grad_cpu_array = (
+        (y_tile * np.power(x_tile, y_tile - 1) * output_grad.cpu_array)
+        .sum(axis=tuple(x_axis))
+        .reshape(x.shape)
+    )
+    y_grad_cpu_array = (
+        (np.power(x_tile, y_tile) * np.log(x_tile) * output_grad.cpu_array)
+        .sum(axis=tuple(y_axis))
+        .reshape(y.shape)
+    )
+
+    return x_grad_cpu_array, y_grad_cpu_array
+
+
+pow, pow_backward = broadcast_binary_opeartion(
+    "pow", None, _pow_forward_op_cpu, _pow_backward_op_cpu
+)

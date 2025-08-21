@@ -248,6 +248,11 @@ class Tensor:
 
         return div(self, other)
 
+    def __pow__(self, other):
+        from basic_ops import pow
+
+        return pow(self, other)
+
     def backward(self):
         instance = DAGTracker.instance()
         instance.backward(self)

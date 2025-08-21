@@ -254,3 +254,15 @@ BROADCAST_BINARY_OPERATION(mul, NO_ARG_TYPE, NO_ARG, MUL, MUL_BACKWARD)
               output_grad[xid] * (-x[pair.x] / (T)pow(y[pair.y], 2))); \
   } while (0)
 BROADCAST_BINARY_OPERATION(div, NO_ARG_TYPE, NO_ARG, DIV, DIV_BACKWARD)
+
+#define POW() ((T)pow((float)x[pair.x], (float)y[pair.y]))
+#define POW_BACKWARD()                                                        \
+  do {                                                                        \
+    atomicAdd(&x_grad[pair.x],                                                \
+              output_grad[xid] * y[pair.y] *                                  \
+                  (T)pow((float)x[pair.x], (float)y[pair.y] - 1));            \
+    atomicAdd(&y_grad[pair.y],                                                \
+              output_grad[xid] * (T)pow((float)x[pair.x], (float)y[pair.y]) * \
+                  (T)logf((float)x[pair.x]));                                 \
+  } while (0)
+BROADCAST_BINARY_OPERATION(pow, NO_ARG_TYPE, NO_ARG, POW, POW_BACKWARD)
