@@ -6,11 +6,7 @@ from mytorch.tensor import (
     CudaMemory,
     shape_size,
 )
-from mytorch.cuda.cuda_utils import (
-    CudaKernelAndStreamManager,
-    CublasLt,
-    CudaContextManager,
-)
+from mytorch.cuda.cuda_utils import CudaEnv, CublasLt
 from mytorch.autograd import DAGTracker
 
 
@@ -45,7 +41,7 @@ def sum(tensor, reduce_axis=None, keepdim=False):
             func_name = "sum_reference_fp16"
         else:
             raise InvalidDataTypeError(tensor.dtype)
-        cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+        cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
             "basic_ops.cu", func_name, tensor.device.index
         )
@@ -103,7 +99,7 @@ def sum_backward(output_grad, tensor, reduce_axis, keepdim):
             func_name = "sum_backward_reference_fp16"
         else:
             raise InvalidDataTypeError(tensor.dtype)
-        cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+        cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
             "basic_ops.cu", func_name, tensor.device.index
         )
@@ -163,9 +159,9 @@ def _cuda_bmm(x, y, x_t: bool, y_t: bool, requires_grad):
     else:
         raise InvalidDataTypeError(x.dtype)
 
-    cuda_context_manager = CudaContextManager().instance()
+    cuda_context_manager = CudaEnv.instance().context_manager
     cuda_context_manager.set_device(x.device.index)
-    cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+    cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
     stream = cuda_kernel_and_stream_manager.get_stream(x.device.index)
 
     a_desc = cublas_lt.matrix_layout_create(
@@ -348,7 +344,7 @@ def permute(x, permute_array):
             func_name = "permute_reference_fp16"
         else:
             raise InvalidDataTypeError(x.dtype)
-        cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+        cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
             "basic_ops.cu", func_name, x.device.index
         )
@@ -411,7 +407,7 @@ def permute_backward(output_grad, x, permute_array):
             func_name = "permute_backward_reference_fp16"
         else:
             raise InvalidDataTypeError(x.dtype)
-        cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+        cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
             "basic_ops.cu", func_name, x.device.index
         )
@@ -550,7 +546,9 @@ def broadcast_binary_opeartion(name, default_alpha, forward_op_cpu, backward_op_
                 func_name = f"{name}_reference_fp16"
             else:
                 raise InvalidDataTypeError(x.dtype)
-            cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+            cuda_kernel_and_stream_manager = (
+                CudaEnv.instance().kernel_and_stream_manager
+            )
             cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
                 "basic_ops.cu", func_name, x.device.index
             )
@@ -613,7 +611,9 @@ def broadcast_binary_opeartion(name, default_alpha, forward_op_cpu, backward_op_
                 func_name = f"{name}_backward_reference_fp16"
             else:
                 raise InvalidDataTypeError(output_grad.dtype)
-            cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+            cuda_kernel_and_stream_manager = (
+                CudaEnv.instance().kernel_and_stream_manager
+            )
             cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
                 "basic_ops.cu", func_name, output_grad.device.index
             )

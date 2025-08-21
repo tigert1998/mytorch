@@ -2,7 +2,7 @@ import numpy as np
 
 from mytorch.autograd import DAGTracker
 from mytorch.tensor import Tensor, InvalidDeviceError, InvalidDataTypeError
-from mytorch.cuda.cuda_utils import CudaKernelAndStreamManager
+from mytorch.cuda.cuda_utils import CudaEnv
 
 
 def conv2d(input, weight, bias=None, stride=1, padding=0):
@@ -28,7 +28,7 @@ def conv2d(input, weight, bias=None, stride=1, padding=0):
             requires_grad=True,
         )
         tensor.fill_(0)
-        cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+        cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         assert input.dtype == weight.dtype and (
             bias is None or input.dtype == bias.dtype
         )
@@ -108,7 +108,7 @@ def conv2d_backward(output_grad, input, weight, bias=None, stride=1, padding=0):
             func_name = "conv2d_backward_reference_fp16"
         else:
             raise InvalidDataTypeError(input.dtype)
-        cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+        cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
             "conv2d.cu", func_name, input.device.index
         )

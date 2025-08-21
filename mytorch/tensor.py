@@ -3,11 +3,7 @@ from typing import Optional
 
 from cuda.bindings import driver
 
-from mytorch.cuda.cuda_utils import (
-    check_cuda_errors,
-    CudaContextManager,
-    CudaKernelAndStreamManager,
-)
+from mytorch.cuda.cuda_utils import check_cuda_errors, CudaEnv
 from mytorch.autograd import DAGTracker
 
 
@@ -122,7 +118,7 @@ class Tensor:
         self.cuda_ptr = None
         self.cpu_array = None
 
-        cuda_context_manager = CudaContextManager.instance()
+        cuda_context_manager = CudaEnv.instance().context_manager
 
         if cpu_array is not None:
             assert self.dtype is None or self.dtype == cpu_array.dtype
@@ -197,7 +193,9 @@ class Tensor:
                 func_name = "fill_reference_fp16"
             else:
                 raise InvalidDataTypeError(self.dtype)
-            cuda_kernel_and_stream_manager = CudaKernelAndStreamManager.instance()
+            cuda_kernel_and_stream_manager = (
+                CudaEnv.instance().kernel_and_stream_manager
+            )
             cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
                 "basic_ops.cu", func_name, self.device.index
             )

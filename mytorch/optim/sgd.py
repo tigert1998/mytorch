@@ -2,7 +2,7 @@ import numpy as np
 
 from mytorch.optim.optimizer import Optimizer
 from mytorch.tensor import Tensor, InvalidDataTypeError, InvalidDeviceError, shape_size
-from mytorch.cuda.cuda_utils import CudaKernelAndStreamManager
+from mytorch.cuda.cuda_utils import CudaEnv
 
 
 class SGD(Optimizer):
@@ -47,7 +47,7 @@ class SGD(Optimizer):
                     else:
                         raise InvalidDataTypeError(param.dtype)
                     cuda_kernel_and_stream_manager = (
-                        CudaKernelAndStreamManager.instance()
+                        CudaEnv.instance().kernel_and_stream_manager
                     )
                     cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
                         "optim.cu", func_name, param.device.index

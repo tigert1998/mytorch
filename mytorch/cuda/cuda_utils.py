@@ -34,14 +34,6 @@ def check_cuda_errors(result):
 
 
 class CudaContextManager:
-    _instance = None
-
-    @classmethod
-    def instance(cls):
-        if cls._instance is None:
-            cls._instance = CudaContextManager()
-        return cls._instance
-
     def __init__(self):
         check_cuda_errors(driver.cuInit(0))
         self._device_id_to_context = {}
@@ -56,14 +48,14 @@ class CudaContextManager:
             driver.cuCtxSetCurrent(self._device_id_to_context[device_id])
         )
 
-    def __del__(self):
+    def destroy(self):
         for key in self._device_id_to_context.keys():
             check_cuda_errors(driver.cuCtxDestroy(self._device_id_to_context[key]))
 
 
 class CudaStream:
-    def __init__(self, device_id):
-        self.cuda_context_manager = CudaContextManager.instance()
+    def __init__(self, device_id, cuda_context_manager):
+        self.cuda_context_manager = cuda_context_manager
         self.device_id = device_id
         self.set_device()
         self.stream = check_cuda_errors(driver.cuStreamCreate(0))
@@ -74,21 +66,13 @@ class CudaStream:
     def sync(self):
         check_cuda_errors(driver.cuStreamSynchronize(self.stream))
 
-    def __del__(self):
+    def destroy(self):
         check_cuda_errors(driver.cuStreamDestroy(self.stream))
 
 
 class CudaCompiler:
-    _instance = None
-
-    @classmethod
-    def instance(cls):
-        if cls._instance is None:
-            cls._instance = CudaCompiler()
-        return cls._instance
-
-    def __init__(self):
-        self._cuda_context_manager = CudaContextManager.instance()
+    def __init__(self, cuda_context_manager):
+        self._cuda_context_manager = cuda_context_manager
 
     def _arch(self, device_id):
         cu_device = check_cuda_errors(driver.cuDeviceGet(device_id))
@@ -178,29 +162,24 @@ class CudaKernel:
 
 
 class CudaKernelAndStreamManager:
-    _instance = None
-
-    @classmethod
-    def instance(cls):
-        if cls._instance is None:
-            cls._instance = CudaKernelAndStreamManager()
-        return cls._instance
-
-    def __init__(self):
-        self._cuda_compiler = CudaCompiler.instance()
-        self._cuda_context_manager = CudaContextManager.instance()
+    def __init__(self, cuda_compiler, cuda_context_manager):
+        self._cuda_compiler = cuda_compiler
+        self._cuda_context_manager = cuda_context_manager
         self._streams = {}
         self._modules = {}
 
-    def __del__(self):
+    def destroy(self):
         for device_id, dic in self._modules.items():
             self._cuda_context_manager.set_device(device_id)
             for module in dic.values():
                 check_cuda_errors(driver.cuModuleUnload(module))
 
+        for device_id in self._streams.keys():
+            self._streams[device_id].destroy()
+
     def get_stream(self, device_id) -> CudaStream:
         if self._streams.get(device_id) is None:
-            self._streams[device_id] = CudaStream(device_id)
+            self._streams[device_id] = CudaStream(device_id, self._cuda_context_manager)
         return self._streams[device_id]
 
     def get_kernel(self, cu_file_path, func_name, device_id):
@@ -221,6 +200,30 @@ class CudaKernelAndStreamManager:
             driver.cuModuleGetFunction(module, func_name.encode())
         )
         return CudaKernel(kernel, stream)
+
+
+class CudaEnv:
+    _instance = None
+
+    @classmethod
+    def instance(cls):
+        if cls._instance is None:
+            cls._instance = CudaEnv()
+        return cls._instance
+
+    def __init__(self):
+        self.context_manager = CudaContextManager()
+        self.compiler = CudaCompiler(self.context_manager)
+        self.kernel_and_stream_manager = CudaKernelAndStreamManager(
+            self.compiler, self.context_manager
+        )
+
+    def destroy(self):
+        self.kernel_and_stream_manager.destroy()
+        self.context_manager.destroy()
+
+    def __del__(self):
+        self.destroy()
 
 
 class CublasLt:
