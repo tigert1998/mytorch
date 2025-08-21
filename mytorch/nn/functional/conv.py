@@ -2,7 +2,7 @@ import numpy as np
 
 from mytorch.autograd import DAGTracker
 from mytorch.tensor import Tensor, InvalidDeviceError, InvalidDataTypeError
-from mytorch.cuda.cuda_utils import CudaEnv
+from mytorch.cuda.env import CudaEnv
 
 
 def conv2d(input, weight, bias=None, stride=1, padding=0):

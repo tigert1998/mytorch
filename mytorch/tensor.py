@@ -3,7 +3,7 @@ from typing import Optional
 
 from cuda.bindings import driver
 
-from mytorch.cuda.cuda_utils import check_cuda_errors, CudaEnv
+from mytorch.cuda.env import check_cuda_errors, CudaEnv
 from mytorch.autograd import DAGTracker
 
 
@@ -59,10 +59,10 @@ class Device:
 
 class CudaMemory:
     def __init__(self, size):
-        self.ptr = check_cuda_errors(driver.cuMemAlloc(size))
+        self.ptr = CudaEnv.instance().allocator.allocate(size)
 
     def __del__(self):
-        check_cuda_errors(driver.cuMemFree(self.ptr))
+        CudaEnv.instance().allocator.deallocate(self.ptr)
 
     def read(self, shape, dtype) -> np.ndarray:
         array = np.zeros(shape=shape, dtype=dtype)

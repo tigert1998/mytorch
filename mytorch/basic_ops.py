@@ -6,8 +6,9 @@ from mytorch.tensor import (
     CudaMemory,
     shape_size,
 )
-from mytorch.cuda.cuda_utils import CudaEnv, CublasLt
+from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
+from mytorch.cuda.cublas_lt import CublasLt
 
 
 def _calculate_reduce_shape(shape, axis, keepdim):
