@@ -21,6 +21,14 @@ class Module:
             return self._parameters[name]
         return getattr(self, name)
 
+    def parameters(self):
+        for param in self._parameters.values():
+            yield param
+
+    def named_parameters(self):
+        for name, param in self._parameters.values():
+            yield (name, param)
+
     def forward(self, *args, **kwargs):
         raise NotImplementedError()
 

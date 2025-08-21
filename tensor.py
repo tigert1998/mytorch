@@ -104,7 +104,7 @@ class Tensor:
             self.device = tensor.device
             return
 
-        self.device = Device(device)
+        self.device: Device = Device(device)
         if self.device.type not in [
             "cpu",
             "cuda",
