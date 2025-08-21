@@ -61,8 +61,13 @@ class CudaMemory:
     def __init__(self, size):
         self.ptr = CudaEnv.instance().allocator.allocate(size)
 
+    def destroy(self):
+        if self.ptr is not None:
+            CudaEnv.instance().allocator.deallocate(self.ptr)
+        self.ptr = None
+
     def __del__(self):
-        CudaEnv.instance().allocator.deallocate(self.ptr)
+        self.destroy()
 
     def read(self, shape, dtype) -> np.ndarray:
         array = np.zeros(shape=shape, dtype=dtype)

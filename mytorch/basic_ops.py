@@ -5,6 +5,7 @@ from mytorch.tensor import (
     InvalidDeviceError,
     CudaMemory,
     shape_size,
+    Tensor,
 )
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
@@ -336,8 +337,6 @@ def bmm_backward(output_grad, x, y):
 def permute(x, permute_array):
     permute_array = [(i + len(permute_array) if i < 0 else i) for i in permute_array]
 
-    from mytorch.tensor import Tensor, CudaMemory
-
     if x.device.type == "cuda":
         if x.dtype == np.float32:
             func_name = "permute_reference_fp32"
@@ -397,8 +396,6 @@ def permute(x, permute_array):
 
 @DAGTracker.instance().register_backward_function("permute")
 def permute_backward(output_grad, x, permute_array):
-    from mytorch.tensor import Tensor, CudaMemory
-
     permute_array = [(i + len(permute_array) if i < 0 else i) for i in permute_array]
 
     if x.device.type == "cuda":
@@ -526,8 +523,6 @@ def _calculate_broadcast_shape(x_shape, y_shape):
 
 def broadcast_binary_opeartion(name, default_alpha, forward_op_cpu, backward_op_cpu):
     def forward(x, y, **kwargs):
-        from mytorch.tensor import Tensor, CudaMemory
-
         dag_tracker = DAGTracker.instance()
 
         if default_alpha is not None:
@@ -598,8 +593,6 @@ def broadcast_binary_opeartion(name, default_alpha, forward_op_cpu, backward_op_
 
     @DAGTracker.instance().register_backward_function(name)
     def backward(output_grad, x, y, alpha):
-        from mytorch.tensor import Tensor, CudaMemory
-
         x_grad = Tensor(dtype=x.dtype, shape=x.shape, device=x.device)
         x_grad.fill_(0)
         y_grad = Tensor(dtype=y.dtype, shape=y.shape, device=y.device)
