@@ -1,7 +1,7 @@
 import numpy as np
 
 from mytorch.optim.optimizer import Optimizer
-from mytorch.tensor import Tensor, InvalidDataTypeError, InvalidDeviceError
+from mytorch.tensor import Tensor, InvalidDataTypeError, InvalidDeviceError, shape_size
 from mytorch.cuda.cuda_utils import CudaKernelAndStreamManager
 
 
@@ -52,7 +52,7 @@ class SGD(Optimizer):
                     cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
                         "optim.cu", func_name, param.device.index
                     )
-                    num_elements = np.prod(param.shape)
+                    num_elements = shape_size(param.shape)
                     cuda_kernel.run(
                         ((num_elements + 255) // 256, 1, 1),
                         (256, 1, 1),

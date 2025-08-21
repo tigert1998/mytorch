@@ -76,9 +76,9 @@ class DAGTracker:
         return ans
 
     def backward(self, tensor):
-        from mytorch.tensor import Tensor
+        from mytorch.tensor import Tensor, shape_size
 
-        assert np.prod(tensor.shape) == 1
+        assert shape_size(tensor.shape) == 1
         tensor.grad = Tensor(
             cpu_array=np.array(1, dtype=tensor.dtype).reshape(tensor.shape),
             device=tensor.device,

@@ -1,6 +1,11 @@
 import numpy as np
 
-from mytorch.tensor import InvalidDataTypeError, InvalidDeviceError
+from mytorch.tensor import (
+    InvalidDataTypeError,
+    InvalidDeviceError,
+    CudaMemory,
+    shape_size,
+)
 from mytorch.cuda.cuda_utils import (
     CudaKernelAndStreamManager,
     CublasLt,
@@ -9,13 +14,27 @@ from mytorch.cuda.cuda_utils import (
 from mytorch.autograd import DAGTracker
 
 
-def sum(tensor):
+def _calculate_reduce_shape(shape, axis, keepdim):
+    assert np.all([0 <= i and i < len(shape) and isinstance(i, int) for i in axis])
+    if keepdim:
+        shape = [(1 if i in axis else shape_i) for i, shape_i in enumerate(shape)]
+    else:
+        shape = [shape_i for i, shape_i in enumerate(shape) if i not in axis]
+    return tuple(shape)
+
+
+def sum(tensor, reduce_axis=None, keepdim=False):
     from mytorch.tensor import Tensor
+
+    if reduce_axis is None:
+        reduce_axis = tuple(range(len(tensor.shape)))
+    reduce_axis = tuple(sorted(reduce_axis))
+    output_shape = _calculate_reduce_shape(tensor.shape, reduce_axis, keepdim)
 
     dag_tracker = DAGTracker.instance()
 
     output_tensor = Tensor(
-        dtype=tensor.dtype, shape=(1,), device=tensor.device, requires_grad=True
+        dtype=tensor.dtype, shape=output_shape, device=tensor.device, requires_grad=True
     )
     output_tensor.fill_(0)
 
@@ -30,26 +49,49 @@ def sum(tensor):
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
             "basic_ops.cu", func_name, tensor.device.index
         )
-        num_elements = np.prod(tensor.shape)
+
+        tensor_shape_num_bytes = len(tensor.shape) * np.dtype(np.int32).itemsize
+        reduce_axis_num_bytes = len(reduce_axis) * np.dtype(np.int32).itemsize
+        if tensor_shape_num_bytes + reduce_axis_num_bytes > 0:
+            cuda_mem = CudaMemory(tensor_shape_num_bytes + reduce_axis_num_bytes)
+            cuda_mem.write(
+                np.array(list(tensor.shape) + list(reduce_axis), dtype=np.int32)
+            )
+            tensor_shape_ptr = int(cuda_mem.ptr)
+            reduce_axis_ptr = tensor_shape_ptr + tensor_shape_num_bytes
+        else:
+            tensor_shape_ptr = reduce_axis_ptr = 0
+
+        num_elements = shape_size(tensor.shape)
         cuda_kernel.run(
             ((num_elements + 255) // 256, 1, 1),
             (256, 1, 1),
-            [np.array(num_elements), tensor, output_tensor],
+            [
+                np.array(num_elements, np.int32),
+                tensor,
+                np.array(len(tensor.shape), np.int32),
+                np.array(tensor_shape_ptr, np.uint64),
+                np.array(len(reduce_axis), np.int32),
+                np.array(reduce_axis_ptr, np.uint64),
+                output_tensor,
+            ],
         )
 
     elif tensor.device.type == "cpu":
-        output_tensor.fill_(tensor.cpu_array.sum())
+        output_tensor.cpu_array = np.sum(
+            tensor.cpu_array, axis=reduce_axis, keepdims=keepdim
+        )
 
     else:
         raise InvalidDeviceError(tensor.device.type)
 
-    dag_tracker.add_node("sum", [tensor], [output_tensor])
+    dag_tracker.add_node("sum", [tensor, reduce_axis, keepdim], [output_tensor])
 
     return output_tensor
 
 
 @DAGTracker.instance().register_backward_function("sum")
-def sum_backward(output_grad, tensor):
+def sum_backward(output_grad, tensor, reduce_axis, keepdim):
     from mytorch.tensor import Tensor
 
     tensor_grad = Tensor(shape=tensor.shape, dtype=tensor.dtype, device=tensor.device)
@@ -65,15 +107,41 @@ def sum_backward(output_grad, tensor):
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
             "basic_ops.cu", func_name, tensor.device.index
         )
-        num_elements = np.prod(tensor.shape)
+
+        tensor_shape_num_bytes = len(tensor.shape) * np.dtype(np.int32).itemsize
+        reduce_axis_num_bytes = len(reduce_axis) * np.dtype(np.int32).itemsize
+        if tensor_shape_num_bytes + reduce_axis_num_bytes > 0:
+            cuda_mem = CudaMemory(tensor_shape_num_bytes + reduce_axis_num_bytes)
+            cuda_mem.write(
+                np.array(list(tensor.shape) + list(reduce_axis), dtype=np.int32)
+            )
+            tensor_shape_ptr = int(cuda_mem.ptr)
+            reduce_axis_ptr = tensor_shape_ptr + tensor_shape_num_bytes
+        else:
+            tensor_shape_ptr = reduce_axis_ptr = 0
+
+        num_elements = shape_size(tensor.shape)
         cuda_kernel.run(
             ((num_elements + 255) // 256, 1, 1),
             (256, 1, 1),
-            [np.array(num_elements), tensor, tensor_grad, output_grad],
+            [
+                np.array(num_elements),
+                tensor,
+                np.array(len(tensor.shape), np.int32),
+                np.array(tensor_shape_ptr, np.uint64),
+                np.array(len(reduce_axis), np.int32),
+                np.array(reduce_axis_ptr, np.uint64),
+                tensor_grad,
+                output_grad,
+            ],
         )
 
     elif tensor.device.type == "cpu":
-        tensor_grad.fill_(output_grad.cpu_array.item())
+        if keepdim:
+            src = output_grad.cpu_array
+        else:
+            src = np.expand_dims(output_grad.cpu_array, reduce_axis)
+        np.copyto(tensor_grad.cpu_array, src)
 
     else:
         raise InvalidDeviceError(tensor.device.type)
@@ -292,12 +360,15 @@ def permute(x, permute_array):
         )
 
         num_bytes = np.dtype(np.int32).itemsize * len(permute_array)
-        cuda_mem = CudaMemory(num_bytes * 2)
-        cuda_mem.write(np.array(list(x.shape) + permute_array, dtype=np.int32))
-        shape_ptr = int(cuda_mem.ptr)
-        permute_array_ptr = shape_ptr + num_bytes
+        if num_bytes > 0:
+            cuda_mem = CudaMemory(num_bytes * 2)
+            cuda_mem.write(np.array(list(x.shape) + permute_array, dtype=np.int32))
+            shape_ptr = int(cuda_mem.ptr)
+            permute_array_ptr = shape_ptr + num_bytes
+        else:
+            shape_ptr = permute_array_ptr = 0
 
-        num_elements = np.prod(x.shape)
+        num_elements = shape_size(x.shape)
         cuda_kernel.run(
             ((num_elements + 255) // 256, 1, 1),
             (256, 1, 1),
@@ -306,8 +377,8 @@ def permute(x, permute_array):
                 x,
                 output_tensor,
                 np.array(len(permute_array), np.int32),
-                np.array(permute_array_ptr, dtype=np.uint64),
                 np.array(shape_ptr, dtype=np.uint64),
+                np.array(permute_array_ptr, dtype=np.uint64),
             ],
         )
 
@@ -351,20 +422,23 @@ def permute_backward(output_grad, x, permute_array):
         )
 
         num_bytes = np.dtype(np.int32).itemsize * len(permute_array)
-        cuda_mem = CudaMemory(num_bytes * 2)
-        cuda_mem.write(np.array(list(x.shape) + permute_array, dtype=np.int32))
-        shape_ptr = int(cuda_mem.ptr)
-        permute_array_ptr = shape_ptr + num_bytes
+        if num_bytes > 0:
+            cuda_mem = CudaMemory(num_bytes * 2)
+            cuda_mem.write(np.array(list(x.shape) + permute_array, dtype=np.int32))
+            shape_ptr = int(cuda_mem.ptr)
+            permute_array_ptr = shape_ptr + num_bytes
+        else:
+            shape_ptr = permute_array_ptr = 0
 
-        num_elements = np.prod(x.shape)
+        num_elements = shape_size(x.shape)
         cuda_kernel.run(
             ((num_elements + 255) // 256, 1, 1),
             (256, 1, 1),
             [
                 np.array(num_elements, dtype=np.int32),
                 np.array(len(permute_array), dtype=np.int32),
-                np.array(permute_array_ptr, dtype=np.uint64),
                 np.array(shape_ptr, dtype=np.uint64),
+                np.array(permute_array_ptr, dtype=np.uint64),
                 input_grad,
                 output_grad,
             ],
@@ -389,7 +463,7 @@ def permute_backward(output_grad, x, permute_array):
 
 
 def _calculate_reshaped_shape(original_shape, target_shape):
-    total_elements = np.prod(original_shape)
+    total_elements = shape_size(original_shape)
     target_elements = 1
     unknown_dim_index = None
 
@@ -483,12 +557,15 @@ def broadcast_binary_opeartion(name, default_alpha, forward_op_cpu, backward_op_
 
             x_shape_num_bytes = len(x.shape) * np.dtype(np.int32).itemsize
             y_shape_num_bytes = len(y.shape) * np.dtype(np.int32).itemsize
-            cuda_mem = CudaMemory(x_shape_num_bytes + y_shape_num_bytes)
-            cuda_mem.write(np.array(list(x.shape) + list(y.shape), dtype=np.int32))
-            x_shape_ptr = int(cuda_mem.ptr)
-            y_shape_ptr = x_shape_ptr + x_shape_num_bytes
+            if x_shape_num_bytes + y_shape_num_bytes > 0:
+                cuda_mem = CudaMemory(x_shape_num_bytes + y_shape_num_bytes)
+                cuda_mem.write(np.array(list(x.shape) + list(y.shape), dtype=np.int32))
+                x_shape_ptr = int(cuda_mem.ptr)
+                y_shape_ptr = x_shape_ptr + x_shape_num_bytes
+            else:
+                x_shape_ptr = y_shape_ptr = 0
 
-            num_elements = np.prod(shape)
+            num_elements = shape_size(shape)
             alpha_arg_list = [] if alpha is None else [np.array(alpha, dtype=x.dtype)]
             cuda_kernel.run(
                 ((num_elements + 255) // 256, 1, 1),
@@ -543,12 +620,15 @@ def broadcast_binary_opeartion(name, default_alpha, forward_op_cpu, backward_op_
 
             x_shape_num_bytes = len(x.shape) * np.dtype(np.int32).itemsize
             y_shape_num_bytes = len(y.shape) * np.dtype(np.int32).itemsize
-            cuda_mem = CudaMemory(x_shape_num_bytes + y_shape_num_bytes)
-            cuda_mem.write(np.array(list(x.shape) + list(y.shape), dtype=np.int32))
-            x_shape_ptr = int(cuda_mem.ptr)
-            y_shape_ptr = x_shape_ptr + x_shape_num_bytes
+            if x_shape_num_bytes + y_shape_num_bytes > 0:
+                cuda_mem = CudaMemory(x_shape_num_bytes + y_shape_num_bytes)
+                cuda_mem.write(np.array(list(x.shape) + list(y.shape), dtype=np.int32))
+                x_shape_ptr = int(cuda_mem.ptr)
+                y_shape_ptr = x_shape_ptr + x_shape_num_bytes
+            else:
+                x_shape_ptr = y_shape_ptr = 0
 
-            num_elements = np.prod(output_grad.shape)
+            num_elements = shape_size(output_grad.shape)
             alpha_arg_list = [] if alpha is None else [np.array(alpha, dtype=x.dtype)]
             cuda_kernel.run(
                 ((num_elements + 255) // 256, 1, 1),

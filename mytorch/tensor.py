@@ -23,6 +23,12 @@ class InvalidDataTypeError(RuntimeError):
         super().__init__(message)
 
 
+def shape_size(shape):
+    from functools import reduce
+
+    return reduce(lambda x, y: x * y, shape, 1)
+
+
 class Device:
     type: str
     index: Optional[int]
@@ -138,7 +144,7 @@ class Tensor:
         elif self.device.type == "cuda":
             cuda_context_manager.set_device(self.device.index)
             self.cuda_ptr = CudaMemory(
-                np.dtype(self.dtype).itemsize * np.prod(self.shape)
+                np.dtype(self.dtype).itemsize * shape_size(self.shape)
             )
 
     def to(self, device):
@@ -163,7 +169,7 @@ class Tensor:
                         check_cuda_errors(driver.cuDeviceGet(new_tensor.device.index)),
                         self.cuda_ptr.ptr,
                         check_cuda_errors(driver.cuDeviceGet(self.device.index)),
-                        np.dtype(self.dtype).itemsize * np.prod(self.shape),
+                        np.dtype(self.dtype).itemsize * shape_size(self.shape),
                     )
                 )
                 return new_tensor
@@ -195,7 +201,7 @@ class Tensor:
             cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
                 "basic_ops.cu", func_name, self.device.index
             )
-            num_elements = np.prod(self.shape)
+            num_elements = shape_size(self.shape)
             cuda_kernel.run(
                 ((num_elements + 255) // 256, 1, 1),
                 (256, 1, 1),
@@ -219,14 +225,14 @@ class Tensor:
                         check_cuda_errors(driver.cuDeviceGet(self.device.index)),
                         tensor.cuda_ptr.ptr,
                         check_cuda_errors(driver.cuDeviceGet(tensor.device.index)),
-                        np.dtype(self.dtype).itemsize * np.prod(self.shape),
+                        np.dtype(self.dtype).itemsize * shape_size(self.shape),
                     )
                 )
 
-    def sum(self):
+    def sum(self, dim=None, keepdim=False):
         from mytorch.basic_ops import sum as func
 
-        return func(self)
+        return func(self, dim, keepdim)
 
     def _cast_other_to_tensor(self, other):
         import numbers

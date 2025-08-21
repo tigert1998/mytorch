@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from mytorch.nn.linear import Linear
 from mytorch.optim.sgd import SGD
@@ -23,7 +24,7 @@ def linear_regression(x, y, device):
     )
     ans = Tensor(cpu_array=y.astype(np.float32).reshape((len(x), 1)), device=device)
 
-    for i in range(500):
+    for i in tqdm(range(500)):
         optimizer.zero_grad()
         output_tensor = linear(input_tensor)
         minus = output_tensor - ans
@@ -40,7 +41,7 @@ def linear_regression(x, y, device):
 if __name__ == "__main__":
     x, y, k, b = make_data(256)
     test_k, test_b = linear_regression(x, y, "cuda:0")
-    print(f"Answer: {k}, {b}\nTest: {test_k}, {test_b}")
+    print(f"Answer: {k}, {b}\nOutput: {test_k}, {test_b}")
 
     plt.scatter(x, y)
     plt.plot(x, x * k + b, label="ground truth")
