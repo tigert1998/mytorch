@@ -84,20 +84,23 @@ def broadcast_binary_opeartion_forward(
             )
 
         elif x.device.type == "cpu":
-            output_tensor = Tensor(
-                dtype=x.dtype,
-                shape=shape,
-                device=x.device,
-                requires_grad=not no_grad_and_inplace,
-            )
-            output_tensor.cpu_array = forward_op_cpu(x, y, *arg_list)
+            if no_grad_and_inplace:
+                forward_op_cpu(x, y, *arg_list)
+            else:
+                output_tensor = Tensor(
+                    dtype=x.dtype,
+                    shape=shape,
+                    device=x.device,
+                    requires_grad=True,
+                )
+                output_tensor.cpu_array = forward_op_cpu(x, y, *arg_list)
 
         else:
             raise InvalidDeviceError(x.device.type)
 
-        DAGTracker.instance().add_node(name, [x, y, *arg_list], [output_tensor])
-
-        return output_tensor
+        if not no_grad_and_inplace:
+            DAGTracker.instance().add_node(name, [x, y, *arg_list], [output_tensor])
+            return output_tensor
 
     return forward
 
@@ -254,9 +257,7 @@ pow_backward = broadcast_binary_opeartion_backward("pow", _pow_backward_op_cpu)
 
 
 def _copy_forward_op_cpu(x, y):
-    new_x = np.zeros_like(x)
-    np.copyto(new_x, y)
-    return new_x
+    np.copyto(x.cpu_array, y.cpu_array)
 
 
 _copy = broadcast_binary_opeartion_forward(

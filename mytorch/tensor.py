@@ -270,6 +270,12 @@ class Tensor:
 
         return pow(self._cast_other_to_tensor(other), self)
 
+    def normal_(self, mean, std):
+        from mytorch.elementwise_ops import _normal
+        from mytorch.rand import _seed
+
+        _normal(self, _seed, mean, std)
+
     def backward(self):
         instance = DAGTracker.instance()
         instance.backward(self)

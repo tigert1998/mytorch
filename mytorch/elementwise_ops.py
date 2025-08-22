@@ -21,7 +21,6 @@ def extract_arg_list(arg_types, args, kwargs, default_dtype):
 
 
 def elementwise_operation_forward(name, arg_types, no_grad_and_inplace, forward_op_cpu):
-
     def forward(x, *args, **kwargs):
         arg_list = extract_arg_list(arg_types, args, kwargs, x.dtype)
         if x.device.type == "cuda":
@@ -58,21 +57,23 @@ def elementwise_operation_forward(name, arg_types, no_grad_and_inplace, forward_
             )
 
         elif x.device.type == "cpu":
-            output_tensor = Tensor(
-                dtype=x.dtype,
-                shape=x.shape,
-                device=x.device,
-                requires_grad=not no_grad_and_inplace,
-            )
-            output_tensor.cpu_array = forward_op_cpu(x, *arg_list)
+            if no_grad_and_inplace:
+                forward_op_cpu(x, *arg_list)
+            else:
+                output_tensor = Tensor(
+                    dtype=x.dtype,
+                    shape=x.shape,
+                    device=x.device,
+                    requires_grad=True,
+                )
+                output_tensor.cpu_array = forward_op_cpu(x, *arg_list)
 
         else:
             raise InvalidDeviceError(x.device.type)
 
         if not no_grad_and_inplace:
             DAGTracker.instance().add_node(name, [x, *arg_list], [output_tensor])
-
-        return output_tensor
+            return output_tensor
 
     return forward
 
@@ -126,4 +127,16 @@ def _fill_forward_op_cpu(x, value):
 
 _fill = elementwise_operation_forward(
     "fill", {"args": [(1, "default")], "kwargs": []}, True, _fill_forward_op_cpu
+)
+
+
+def _normal_forward_op_cpu(x, mean, stddev):
+    x.cpu_array = np.random.normal(mean, stddev, x.shape)
+
+
+_normal = elementwise_operation_forward(
+    "normal",
+    {"args": [(0, np.uint64), (0, "default"), (1, "default")], "kwargs": []},
+    True,
+    _normal_forward_op_cpu,
 )
