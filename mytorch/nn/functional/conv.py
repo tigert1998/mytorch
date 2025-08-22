@@ -18,14 +18,18 @@ def conv2d(input, weight, bias=None, stride=1, padding=0):
         ],
     ]
 
-    dag_tracker = DAGTracker.instance()
+    requires_grad = (
+        input.requires_grad
+        or weight.requires_grad
+        or (bias is not None and bias.requires_grad)
+    )
 
     if input.device.type == "cuda":
         tensor = Tensor(
             shape=output_shape,
             dtype=input.dtype,
             device=input.device,
-            requires_grad=True,
+            requires_grad=requires_grad,
         )
         tensor.fill_(0)
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
@@ -69,7 +73,10 @@ def conv2d(input, weight, bias=None, stride=1, padding=0):
     else:
         raise InvalidDeviceError(input.device.type)
 
-    dag_tracker.add_node("conv2d", [input, weight, bias, stride, padding], [tensor])
+    if requires_grad:
+        DAGTracker.instance().add_node(
+            "conv2d", [input, weight, bias, stride, padding], [tensor]
+        )
 
     return tensor
 

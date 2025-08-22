@@ -29,10 +29,13 @@ def sum(tensor, reduce_axis=None, keepdim=False):
     reduce_axis = tuple(sorted(reduce_axis))
     output_shape = _calculate_reduce_shape(tensor.shape, reduce_axis, keepdim)
 
-    dag_tracker = DAGTracker.instance()
+    requires_grad = tensor.requires_grad
 
     output_tensor = Tensor(
-        dtype=tensor.dtype, shape=output_shape, device=tensor.device, requires_grad=True
+        dtype=tensor.dtype,
+        shape=output_shape,
+        device=tensor.device,
+        requires_grad=requires_grad,
     )
     output_tensor.fill_(0)
 
@@ -83,7 +86,10 @@ def sum(tensor, reduce_axis=None, keepdim=False):
     else:
         raise InvalidDeviceError(tensor.device.type)
 
-    dag_tracker.add_node("sum", [tensor, reduce_axis, keepdim], [output_tensor])
+    if requires_grad:
+        DAGTracker.instance().add_node(
+            "sum", [tensor, reduce_axis, keepdim], [output_tensor]
+        )
 
     return output_tensor
 
@@ -242,22 +248,25 @@ def mm(x, y):
 
     assert x.device == y.device
 
+    requires_grad = x.requires_grad or y.requires_grad
+
     if x.device.type == "cuda":
         new_x = Tensor(tensor=x)
         new_x.shape = (1, *new_x.shape)
         new_y = Tensor(tensor=y)
         new_y.shape = (1, *new_y.shape)
-        z = _cuda_bmm(new_x, new_y, False, False, True)
+        z = _cuda_bmm(new_x, new_y, False, False, requires_grad)
         z.shape = z.shape[1:]
 
     elif x.device.type == "cpu":
         z_cpu_array = np.matmul(x.cpu_array, y.cpu_array)
-        z = Tensor(cpu_array=z_cpu_array, device="cpu", requires_grad=True)
+        z = Tensor(cpu_array=z_cpu_array, device="cpu", requires_grad=requires_grad)
 
     else:
         raise InvalidDeviceError(x.device.type)
 
-    DAGTracker.instance().add_node("mm", [x, y], [z])
+    if requires_grad:
+        DAGTracker.instance().add_node("mm", [x, y], [z])
 
     return z
 
@@ -297,17 +306,20 @@ def bmm(x, y):
 
     assert x.device == y.device
 
+    requires_grad = x.requires_grad or y.requires_grad
+
     if x.device.type == "cuda":
-        z = _cuda_bmm(x, y, False, False, True)
+        z = _cuda_bmm(x, y, False, False, requires_grad)
 
     elif x.device.type == "cpu":
         z_cpu_array = np.matmul(x.cpu_array, y.cpu_array)
-        z = Tensor(cpu_array=z_cpu_array, device="cpu", requires_grad=True)
+        z = Tensor(cpu_array=z_cpu_array, device="cpu", requires_grad=requires_grad)
 
     else:
         raise InvalidDeviceError(x.device.type)
 
-    DAGTracker.instance().add_node("bmm", [x, y], [z])
+    if requires_grad:
+        DAGTracker.instance().add_node("bmm", [x, y], [z])
 
     return z
 
@@ -337,6 +349,8 @@ def bmm_backward(output_grad, x, y):
 def permute(x, permute_array):
     permute_array = [(i + len(permute_array) if i < 0 else i) for i in permute_array]
 
+    requires_grad = x.requires_grad
+
     if x.device.type == "cuda":
         if x.dtype == np.float32:
             func_name = "permute_reference_fp32"
@@ -352,7 +366,7 @@ def permute(x, permute_array):
             dtype=x.dtype,
             device=x.device,
             shape=tuple([x.shape[i] for i in permute_array]),
-            requires_grad=True,
+            requires_grad=requires_grad,
         )
 
         num_bytes = np.dtype(np.int32).itemsize * len(permute_array)
@@ -383,13 +397,14 @@ def permute(x, permute_array):
             cpu_array=np.transpose(x.cpu_array, permute_array),
             dtype=x.dtype,
             device=x.device,
-            requires_grad=True,
+            requires_grad=requires_grad,
         )
 
     else:
         raise InvalidDeviceError(x.device.type)
 
-    DAGTracker.instance().add_node("permute", [x, permute_array], [output_tensor])
+    if requires_grad:
+        DAGTracker.instance().add_node("permute", [x, permute_array], [output_tensor])
 
     return output_tensor
 
@@ -491,10 +506,12 @@ def _calculate_reshaped_shape(original_shape, target_shape):
 def reshape(x, shape):
     from mytorch.tensor import Tensor
 
-    new_x = Tensor(tensor=x, requires_grad=True)
+    requires_grad = x.requires_grad
+    new_x = Tensor(tensor=x, requires_grad=requires_grad)
     new_x.shape = _calculate_reshaped_shape(x.shape, shape)
 
-    DAGTracker.instance().add_node("reshape", [x, shape], [new_x])
+    if requires_grad:
+        DAGTracker.instance().add_node("reshape", [x, shape], [new_x])
 
     return new_x
 

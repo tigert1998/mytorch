@@ -23,6 +23,7 @@ def extract_arg_list(arg_types, args, kwargs, default_dtype):
 def elementwise_operation_forward(name, arg_types, no_grad_and_inplace, forward_op_cpu):
     def forward(x, *args, **kwargs):
         arg_list = extract_arg_list(arg_types, args, kwargs, x.dtype)
+        requires_grad = not no_grad_and_inplace and x.requires_grad
         if x.device.type == "cuda":
             if x.dtype == np.float32:
                 func_name = f"{name}_reference_fp32"
@@ -41,7 +42,10 @@ def elementwise_operation_forward(name, arg_types, no_grad_and_inplace, forward_
                 output_tensor = np.array(0, np.uint64)
             else:
                 output_tensor = Tensor(
-                    dtype=x.dtype, shape=x.shape, device=x.device, requires_grad=True
+                    dtype=x.dtype,
+                    shape=x.shape,
+                    device=x.device,
+                    requires_grad=requires_grad,
                 )
 
             num_elements = shape_size(x.shape)
@@ -64,15 +68,17 @@ def elementwise_operation_forward(name, arg_types, no_grad_and_inplace, forward_
                     dtype=x.dtype,
                     shape=x.shape,
                     device=x.device,
-                    requires_grad=True,
+                    requires_grad=requires_grad,
                 )
                 output_tensor.cpu_array = forward_op_cpu(x, *arg_list)
 
         else:
             raise InvalidDeviceError(x.device.type)
 
-        if not no_grad_and_inplace:
+        if requires_grad:
             DAGTracker.instance().add_node(name, [x, *arg_list], [output_tensor])
+
+        if not no_grad_and_inplace:
             return output_tensor
 
     return forward
