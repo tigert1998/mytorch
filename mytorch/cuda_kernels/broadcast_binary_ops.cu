@@ -43,7 +43,7 @@ __device__ int2 broadcast(int idx, int x_shape_n, int* x_shape, int y_shape_n,
     int xid = blockIdx.x * blockDim.x + threadIdx.x;                         \
     if (xid >= n) return;                                                    \
     int2 pair = broadcast(xid, x_shape_n, x_shape, y_shape_n, y_shape);      \
-    output[xid] = op();                                                      \
+    op();                                                                    \
   }                                                                          \
   extern "C" __global__ void name##_reference_fp32(                          \
       int n, int x_shape_n, int* x_shape, int y_shape_n, int* y_shape,       \
@@ -92,7 +92,7 @@ __device__ int2 broadcast(int idx, int x_shape_n, int* x_shape, int y_shape_n,
 #define NO_ARG_TYPE(T)
 #define NO_ARG()
 
-#define ADD_WITH_ALPHA() (x[pair.x] + y[pair.y] * alpha)
+#define ADD_WITH_ALPHA() output[xid] = x[pair.x] + y[pair.y] * alpha
 #define ADD_WITH_ALPHA_BACKWARD()                         \
   do {                                                    \
     atomicAdd(&x_grad[pair.x], output_grad[xid]);         \
@@ -101,7 +101,7 @@ __device__ int2 broadcast(int idx, int x_shape_n, int* x_shape, int y_shape_n,
 BROADCAST_BINARY_OPERATION(add, ALPHA_ARG_TYPE, ALPHA_ARG, ADD_WITH_ALPHA,
                            ADD_WITH_ALPHA_BACKWARD)
 
-#define SUB_WITH_ALPHA() (x[pair.x] - y[pair.y] * alpha)
+#define SUB_WITH_ALPHA() output[xid] = x[pair.x] - y[pair.y] * alpha
 #define SUB_WITH_ALPHA_BACKWARD()                          \
   do {                                                     \
     atomicAdd(&x_grad[pair.x], output_grad[xid]);          \
@@ -110,7 +110,7 @@ BROADCAST_BINARY_OPERATION(add, ALPHA_ARG_TYPE, ALPHA_ARG, ADD_WITH_ALPHA,
 BROADCAST_BINARY_OPERATION(sub, ALPHA_ARG_TYPE, ALPHA_ARG, SUB_WITH_ALPHA,
                            SUB_WITH_ALPHA_BACKWARD)
 
-#define MUL() (x[pair.x] * y[pair.y])
+#define MUL() output[xid] = x[pair.x] * y[pair.y]
 #define MUL_BACKWARD()                                        \
   do {                                                        \
     atomicAdd(&x_grad[pair.x], output_grad[xid] * y[pair.y]); \
@@ -118,7 +118,7 @@ BROADCAST_BINARY_OPERATION(sub, ALPHA_ARG_TYPE, ALPHA_ARG, SUB_WITH_ALPHA,
   } while (0)
 BROADCAST_BINARY_OPERATION(mul, NO_ARG_TYPE, NO_ARG, MUL, MUL_BACKWARD)
 
-#define DIV() (x[pair.x] / y[pair.y])
+#define DIV() output[xid] = x[pair.x] / y[pair.y]
 #define DIV_BACKWARD()                                                 \
   do {                                                                 \
     atomicAdd(&x_grad[pair.x], output_grad[xid] / y[pair.y]);          \
@@ -127,7 +127,7 @@ BROADCAST_BINARY_OPERATION(mul, NO_ARG_TYPE, NO_ARG, MUL, MUL_BACKWARD)
   } while (0)
 BROADCAST_BINARY_OPERATION(div, NO_ARG_TYPE, NO_ARG, DIV, DIV_BACKWARD)
 
-#define POW() ((T)pow((float)x[pair.x], (float)y[pair.y]))
+#define POW() output[xid] = (T)pow((float)x[pair.x], (float)y[pair.y])
 #define POW_BACKWARD()                                                        \
   do {                                                                        \
     atomicAdd(&x_grad[pair.x],                                                \
@@ -139,5 +139,5 @@ BROADCAST_BINARY_OPERATION(div, NO_ARG_TYPE, NO_ARG, DIV, DIV_BACKWARD)
   } while (0)
 BROADCAST_BINARY_OPERATION(pow, NO_ARG_TYPE, NO_ARG, POW, POW_BACKWARD)
 
-#define COPY() y[pair.y]
+#define COPY() x[pair.x] = y[pair.y]
 BROADCAST_BINARY_OPERATION_FORWARD(copy, NO_ARG_TYPE, NO_ARG, COPY)
