@@ -3,7 +3,8 @@ import numpy as np
 from mytorch.nn.module import Module
 from mytorch.nn.parameter import Parameter
 from mytorch.tensor import Tensor
-from mytorch.basic_ops import mm, reshape, permute, add
+from mytorch.basic_ops import mm, reshape, permute
+from mytorch.broadcast_binary_ops import add
 
 
 class Linear(Module):

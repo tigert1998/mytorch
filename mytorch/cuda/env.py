@@ -94,11 +94,15 @@ class CudaCompiler:
             nvrtc.nvrtcCreateProgram(content.encode(), path.encode(), 0, [], [])
         )
         major, minor = self._arch(device_id)
-        cuda_include_path = os.path.join(os.environ["CUDA_PATH"], "include")
+        cuda_path = os.environ["CUDA_PATH"]
+        cuda_include_paths = [
+            os.path.join(cuda_path, "include"),
+            os.path.join(cuda_path, "include/cccl"),
+        ]
         opts = [
             b"--fmad=false",
             f"--gpu-architecture=compute_{major}{minor}".encode(),
-            f"-I{cuda_include_path}".encode(),
+            *[f"-I{i}".encode() for i in cuda_include_paths],
         ]
         try:
             check_cuda_errors(nvrtc.nvrtcCompileProgram(prog, len(opts), opts))

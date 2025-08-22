@@ -189,30 +189,12 @@ class Tensor:
         return f'tensor({repr(array)}, device="{self.device}")'
 
     def fill_(self, value):
-        if self.device.type == "cpu":
-            self.cpu_array.fill(value)
-        elif self.device.type == "cuda":
-            if self.dtype == np.float32:
-                func_name = "fill_reference_fp32"
-            elif self.dtype == np.float16:
-                func_name = "fill_reference_fp16"
-            else:
-                raise InvalidDataTypeError(self.dtype)
-            cuda_kernel_and_stream_manager = (
-                CudaEnv.instance().kernel_and_stream_manager
-            )
-            cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-                "basic_ops.cu", func_name, self.device.index
-            )
-            num_elements = shape_size(self.shape)
-            cuda_kernel.run(
-                ((num_elements + 255) // 256, 1, 1),
-                (256, 1, 1),
-                [np.array(num_elements), self, np.array(value, dtype=self.dtype)],
-            )
+        from mytorch.elementwise_ops import _fill
+
+        _fill(self, value)
 
     def copy_(self, tensor):
-        from mytorch.basic_ops import _copy
+        from mytorch.broadcast_binary_ops import _copy
 
         assert isinstance(tensor, Tensor) and self.dtype == tensor.dtype
         _copy(self, tensor.to(self.device))
@@ -239,54 +221,60 @@ class Tensor:
         return other
 
     def __add__(self, other):
-        from mytorch.basic_ops import add
+        from mytorch.broadcast_binary_ops import add
 
         return add(self, self._cast_other_to_tensor(other))
 
     def __radd__(self, other):
-        from mytorch.basic_ops import add
+        from mytorch.broadcast_binary_ops import add
 
         return add(self._cast_other_to_tensor(other), self)
 
     def __sub__(self, other):
-        from mytorch.basic_ops import sub
+        from mytorch.broadcast_binary_ops import sub
 
         return sub(self, self._cast_other_to_tensor(other))
 
     def __rsub__(self, other):
-        from mytorch.basic_ops import sub
+        from mytorch.broadcast_binary_ops import sub
 
         return sub(self._cast_other_to_tensor(other), self)
 
     def __mul__(self, other):
-        from mytorch.basic_ops import mul
+        from mytorch.broadcast_binary_ops import mul
 
         return mul(self, self._cast_other_to_tensor(other))
 
     def __rmul__(self, other):
-        from mytorch.basic_ops import mul
+        from mytorch.broadcast_binary_ops import mul
 
         return mul(self._cast_other_to_tensor(other), self)
 
     def __truediv__(self, other):
-        from mytorch.basic_ops import div
+        from mytorch.broadcast_binary_ops import div
 
         return div(self, self._cast_other_to_tensor(other))
 
     def __rtruediv__(self, other):
-        from mytorch.basic_ops import div
+        from mytorch.broadcast_binary_ops import div
 
         return div(self._cast_other_to_tensor(other), self)
 
     def __pow__(self, other):
-        from mytorch.basic_ops import pow
+        from mytorch.broadcast_binary_ops import pow
 
         return pow(self, self._cast_other_to_tensor(other))
 
     def __rpow__(self, other):
-        from mytorch.basic_ops import pow
+        from mytorch.broadcast_binary_ops import pow
 
         return pow(self._cast_other_to_tensor(other), self)
+
+    def normal_(self, mean, std):
+        from mytorch.elementwise_ops import _normal
+        from mytorch.rand import _seed
+
+        _normal(self, _seed, mean, std)
 
     def backward(self):
         instance = DAGTracker.instance()
