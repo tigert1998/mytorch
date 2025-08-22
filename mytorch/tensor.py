@@ -189,27 +189,9 @@ class Tensor:
         return f'tensor({repr(array)}, device="{self.device}")'
 
     def fill_(self, value):
-        if self.device.type == "cpu":
-            self.cpu_array.fill(value)
-        elif self.device.type == "cuda":
-            if self.dtype == np.float32:
-                func_name = "fill_reference_fp32"
-            elif self.dtype == np.float16:
-                func_name = "fill_reference_fp16"
-            else:
-                raise InvalidDataTypeError(self.dtype)
-            cuda_kernel_and_stream_manager = (
-                CudaEnv.instance().kernel_and_stream_manager
-            )
-            cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-                "basic_ops.cu", func_name, self.device.index
-            )
-            num_elements = shape_size(self.shape)
-            cuda_kernel.run(
-                ((num_elements + 255) // 256, 1, 1),
-                (256, 1, 1),
-                [np.array(num_elements), self, np.array(value, dtype=self.dtype)],
-            )
+        from mytorch.elementwise_ops import _fill
+
+        _fill(self, value)
 
     def copy_(self, tensor):
         from mytorch.basic_ops import _copy
