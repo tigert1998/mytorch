@@ -130,7 +130,8 @@ _fill = elementwise_operation_forward(
 )
 
 
-def _normal_forward_op_cpu(x, mean, stddev):
+def _normal_forward_op_cpu(x, seed, mean, stddev):
+    np.random.seed(seed)
     x.cpu_array = np.random.normal(mean, stddev, x.shape)
 
 
@@ -140,3 +141,23 @@ _normal = elementwise_operation_forward(
     True,
     _normal_forward_op_cpu,
 )
+
+
+def _relu_forward_op_cpu(x):
+    return np.maximum(x.cpu_array, 0)
+
+
+def _relu_backward_op_cpu(x, output_grad):
+    x_grad = output_grad.cpu_array.copy()
+    x_grad[x.cpu_array < 0] = 0
+    return x_grad
+
+
+_relu = elementwise_operation_forward(
+    "relu",
+    {"args": [], "kwargs": []},
+    False,
+    _relu_forward_op_cpu,
+)
+
+_relu_backward = elementwise_operation_backward("relu", _relu_backward_op_cpu)
