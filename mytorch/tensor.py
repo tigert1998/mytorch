@@ -194,7 +194,7 @@ class Tensor:
         _fill(self, value)
 
     def copy_(self, tensor):
-        from mytorch.basic_ops import _copy
+        from mytorch.broadcast_binary_ops import _copy
 
         assert isinstance(tensor, Tensor) and self.dtype == tensor.dtype
         _copy(self, tensor.to(self.device))
@@ -221,52 +221,52 @@ class Tensor:
         return other
 
     def __add__(self, other):
-        from mytorch.basic_ops import add
+        from mytorch.broadcast_binary_ops import add
 
         return add(self, self._cast_other_to_tensor(other))
 
     def __radd__(self, other):
-        from mytorch.basic_ops import add
+        from mytorch.broadcast_binary_ops import add
 
         return add(self._cast_other_to_tensor(other), self)
 
     def __sub__(self, other):
-        from mytorch.basic_ops import sub
+        from mytorch.broadcast_binary_ops import sub
 
         return sub(self, self._cast_other_to_tensor(other))
 
     def __rsub__(self, other):
-        from mytorch.basic_ops import sub
+        from mytorch.broadcast_binary_ops import sub
 
         return sub(self._cast_other_to_tensor(other), self)
 
     def __mul__(self, other):
-        from mytorch.basic_ops import mul
+        from mytorch.broadcast_binary_ops import mul
 
         return mul(self, self._cast_other_to_tensor(other))
 
     def __rmul__(self, other):
-        from mytorch.basic_ops import mul
+        from mytorch.broadcast_binary_ops import mul
 
         return mul(self._cast_other_to_tensor(other), self)
 
     def __truediv__(self, other):
-        from mytorch.basic_ops import div
+        from mytorch.broadcast_binary_ops import div
 
         return div(self, self._cast_other_to_tensor(other))
 
     def __rtruediv__(self, other):
-        from mytorch.basic_ops import div
+        from mytorch.broadcast_binary_ops import div
 
         return div(self._cast_other_to_tensor(other), self)
 
     def __pow__(self, other):
-        from mytorch.basic_ops import pow
+        from mytorch.broadcast_binary_ops import pow
 
         return pow(self, self._cast_other_to_tensor(other))
 
     def __rpow__(self, other):
-        from mytorch.basic_ops import pow
+        from mytorch.broadcast_binary_ops import pow
 
         return pow(self._cast_other_to_tensor(other), self)
 

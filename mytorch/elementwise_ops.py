@@ -5,21 +5,25 @@ from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
 
 
-def elementwise_operation_forward(name, arg_types, no_grad_and_inplace, forward_op_cpu):
-    def cast_dtype(dtype, x):
-        if dtype == "x.dtype":
-            return x.dtype
+def extract_arg_list(arg_types, args, kwargs, default_dtype):
+    def cast_dtype(dtype):
+        if dtype == "default":
+            return default_dtype
         return dtype
 
-    def forward(x, *args, **kwargs):
-        arg_list = [
-            np.array(args[i], dtype=cast_dtype(dtype, x))
-            for i, dtype in enumerate(arg_types["args"])
-        ] + [
-            np.array(kwargs[name], dtype=cast_dtype(dtype, x))
-            for name, dtype in arg_types["kwargs"]
-        ]
+    return [
+        np.array(args[i] if i < len(args) else default, dtype=cast_dtype(dtype))
+        for i, (default, dtype) in enumerate(arg_types["args"])
+    ] + [
+        np.array(kwargs.get(name, default), dtype=cast_dtype(dtype))
+        for name, default, dtype in arg_types["kwargs"]
+    ]
 
+
+def elementwise_operation_forward(name, arg_types, no_grad_and_inplace, forward_op_cpu):
+
+    def forward(x, *args, **kwargs):
+        arg_list = extract_arg_list(arg_types, args, kwargs, x.dtype)
         if x.device.type == "cuda":
             if x.dtype == np.float32:
                 func_name = f"{name}_reference_fp32"
@@ -55,7 +59,10 @@ def elementwise_operation_forward(name, arg_types, no_grad_and_inplace, forward_
 
         elif x.device.type == "cpu":
             output_tensor = Tensor(
-                dtype=x.dtype, shape=x.shape, device=x.device, requires_grad=True
+                dtype=x.dtype,
+                shape=x.shape,
+                device=x.device,
+                requires_grad=not no_grad_and_inplace,
             )
             output_tensor.cpu_array = forward_op_cpu(x, *arg_list)
 
@@ -118,5 +125,5 @@ def _fill_forward_op_cpu(x, value):
 
 
 _fill = elementwise_operation_forward(
-    "fill", {"args": ["x.dtype"], "kwargs": []}, True, _fill_forward_op_cpu
+    "fill", {"args": [(1, "default")], "kwargs": []}, True, _fill_forward_op_cpu
 )
