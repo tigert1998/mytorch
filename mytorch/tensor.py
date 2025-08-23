@@ -209,6 +209,21 @@ class Tensor:
 
         return func(self, dim, keepdim)
 
+    def var(self, dim=None, correction=1, keepdim=False):
+        from mytorch.reduce_ops import var as func
+
+        return func(self, dim, correction, keepdim)
+
+    def std(self, dim=None, correction=1, keepdim=False):
+        from mytorch.reduce_ops import std as func
+
+        return func(self, dim, correction, keepdim)
+
+    def reshape(self, shape):
+        from mytorch.basic_ops import reshape as func
+
+        return func(self, shape)
+
     def _cast_other_to_tensor(self, other):
         import numbers
 

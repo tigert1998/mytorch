@@ -1,4 +1,4 @@
-from typing import Optional, Self, Dict
+from typing import Optional, Self, Dict, Set
 
 from mytorch.nn.parameter import Parameter, Tensor
 
@@ -8,6 +8,7 @@ class Module:
         self._parameters: Dict[str, Parameter] = {}
         self._buffers: Dict[str, Tensor] = {}
         self._modules: Dict[str, Self] = {}
+        self.training: bool = True
 
     def register_parameter(self, name, parameter: Optional[Parameter]):
         if parameter is not None:
@@ -23,6 +24,15 @@ class Module:
         if module is not None:
             self._modules[name] = module
         super().__setattr__(name, module)
+
+    def train(self, mode=True) -> Self:
+        self.training = mode
+        for child in self.children():
+            child.train(mode=mode)
+        return self
+
+    def eval(self) -> Self:
+        return self.train(mode=False)
 
     def to(self, device):
         for key in self._parameters.keys():
@@ -46,17 +56,82 @@ class Module:
         for _, buffer in self.named_buffers(recurse=recurse):
             yield buffer
 
-    def named_parameters(self, recurse=True):
-        for name, param in self._parameters.items():
-            yield (name, param)
-        for module in self._modules.values():
-            yield from module.named_parameters(recurse=recurse)
+    def children(self):
+        for _, module in self.named_children():
+            yield module
 
-    def named_buffers(self, recurse=True):
-        for name, buffer in self._buffers.items():
-            yield (name, buffer)
-        for module in self._modules.values():
-            yield from module.named_buffers(recurse=recurse)
+    def _named_members(
+        self, get_members_fn, prefix="", recurse=True, remove_duplicate: bool = True
+    ):
+        # from pytorch source code
+        memo = set()
+        modules = (
+            self.named_modules(prefix=prefix, remove_duplicate=remove_duplicate)
+            if recurse
+            else [(prefix, self)]
+        )
+        for module_prefix, module in modules:
+            members = get_members_fn(module)
+            for k, v in members:
+                if v is None or v in memo:
+                    continue
+                if remove_duplicate:
+                    memo.add(v)
+                name = module_prefix + ("." if module_prefix else "") + k
+                yield name, v
+
+    def named_modules(
+        self,
+        memo: Optional[Set[Self]] = None,
+        prefix: str = "",
+        remove_duplicate: bool = True,
+    ):
+        # from pytorch source code
+        if memo is None:
+            memo = set()
+        if self not in memo:
+            if remove_duplicate:
+                memo.add(self)
+            yield prefix, self
+            for name, module in self._modules.items():
+                if module is None:
+                    continue
+                submodule_prefix = prefix + ("." if prefix else "") + name
+                yield from module.named_modules(
+                    memo, submodule_prefix, remove_duplicate
+                )
+
+    def named_parameters(
+        self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
+    ):
+        # from pytorch source code
+        gen = self._named_members(
+            lambda module: module._parameters.items(),
+            prefix=prefix,
+            recurse=recurse,
+            remove_duplicate=remove_duplicate,
+        )
+        yield from gen
+
+    def named_buffers(
+        self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
+    ):
+        # from pytorch source code
+        gen = self._named_members(
+            lambda module: module._buffers.items(),
+            prefix=prefix,
+            recurse=recurse,
+            remove_duplicate=remove_duplicate,
+        )
+        yield from gen
+
+    def named_children(self):
+        # from pytorch source code
+        memo = set()
+        for name, module in self._modules.items():
+            if module is not None and module not in memo:
+                memo.add(module)
+                yield name, module
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError()

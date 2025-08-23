@@ -369,6 +369,9 @@ def reshape(x, shape):
     new_x = Tensor(tensor=x, requires_grad=requires_grad)
     new_x.shape = _calculate_reshaped_shape(x.shape, shape)
 
+    if new_x.device.type == "cpu":
+        new_x.cpu_array = new_x.cpu_array.reshape(new_x.shape)
+
     if requires_grad:
         DAGTracker.instance().add_node("reshape", [x, shape], [new_x])
 

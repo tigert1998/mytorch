@@ -1,5 +1,6 @@
 import numpy as np
 
+from mytorch.tensor import Tensor
 from mytorch.nn.module import Module
 from mytorch.nn.parameter import Parameter, Tensor
 
@@ -15,6 +16,73 @@ class BatchNorm2d(Module):
         device="cpu",
         dtype=np.float32,
     ):
-        pass
+        super().__init__()
 
-    def forward(self, x): ...
+        self.num_features = num_features
+        self.eps = eps
+        self.momentum = momentum
+        self.affine = affine
+        self.track_running_stats = track_running_stats
+
+        if self.affine:
+            self.weight = Parameter(
+                Tensor(shape=(num_features,), dtype=dtype, device=device)
+            )
+            self.bias = Parameter(
+                Tensor(shape=(num_features,), dtype=dtype, device=device)
+            )
+        else:
+            self.register_parameter("weight", None)
+            self.register_parameter("bias", None)
+
+        if self.track_running_stats:
+            self.running_mean = Tensor(
+                shape=(num_features,), dtype=dtype, device=device
+            )
+            self.running_var = Tensor(shape=(num_features,), dtype=dtype, device=device)
+        else:
+            self.register_buffer("running_mean", None)
+            self.register_buffer("running_var", None)
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        if self.track_running_stats:
+            self.running_mean.fill_(0)
+            self.running_var.fill_(1)
+        if self.affine:
+            self.weight.fill_(1)
+            self.bias.fill_(0)
+
+    def forward(self, x: Tensor):
+        if self.training:
+            batch_mean = x.mean(dim=(0, 2, 3), keepdim=True)
+            batch_var = x.var(dim=(0, 2, 3), keepdim=True, correction=0)
+
+            if self.track_running_stats:
+                self.running_mean.copy_(
+                    (1 - self.momentum) * self.running_mean
+                    + self.momentum * batch_mean.reshape((self.num_features,))
+                )
+                self.running_var.copy_(
+                    (1 - self.momentum) * self.running_var
+                    + self.momentum * batch_var.reshape((self.num_features,))
+                )
+
+            x_normalized = (x - batch_mean) / (batch_var + self.eps) ** 0.5
+        else:
+            if self.track_running_stats:
+                mean = self.running_mean.reshape((1, self.num_features, 1, 1))
+                var = self.running_var.reshape((1, self.num_features, 1, 1))
+            else:
+                mean = x.mean(dim=(0, 2, 3), keepdim=True)
+                var = x.var(dim=(0, 2, 3), keepdim=True, correction=0)
+
+            x_normalized = (x - mean) / (var + self.eps) ** 0.5
+
+        if self.affine:
+            weight = self.weight.reshape((1, self.num_features, 1, 1))
+            bias = self.bias.reshape((1, self.num_features, 1, 1))
+            return weight * x_normalized + bias
+        else:
+            return x_normalized

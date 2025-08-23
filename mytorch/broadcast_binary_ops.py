@@ -30,6 +30,8 @@ def broadcast_binary_opeartion_forward(
     def forward(x, y, *args, **kwargs):
         from mytorch.elementwise_ops import extract_arg_list
 
+        assert x.device == y.device
+
         arg_list = extract_arg_list(arg_types, args, kwargs, x.dtype)
 
         shape = _calculate_broadcast_shape(x.shape, y.shape)

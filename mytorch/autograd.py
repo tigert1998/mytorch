@@ -96,7 +96,11 @@ class DAGTracker:
                 self._node_inputs[(node, idx)], input_tensors_grads
             ):
                 if input_tensor.requires_grad:
-                    input_tensor.grad = grad
+                    if input_tensor.grad is None:
+                        input_tensor.grad = grad
+                    else:
+                        assert input_tensor.grad.shape == grad.shape
+                        input_tensor.grad += grad
 
         # erase tensor and nodes from dag
         for node, idx in order:

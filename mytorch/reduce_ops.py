@@ -194,3 +194,14 @@ def mean(x, dim=None, keepdim=False):
         dim = tuple(range(len(x.shape)))
     scale = 1 / shape_size([x.shape[i] for i in dim])
     return _sum_scale(x, dim, keepdim, scale)
+
+
+def var(x, dim=None, correction=1, keepdim=False):
+    if dim is None:
+        dim = tuple(range(len(x.shape)))
+    scale = 1 / (shape_size([x.shape[i] for i in dim]) - correction)
+    return _sum_scale((x - mean(x, dim=dim, keepdim=True)) ** 2, dim, keepdim, scale)
+
+
+def std(x, dim=None, correction=1, keepdim=False):
+    return var(x, dim, correction, keepdim) ** 0.5
