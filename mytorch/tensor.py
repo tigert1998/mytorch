@@ -200,7 +200,12 @@ class Tensor:
         _copy(self, tensor.to(self.device))
 
     def sum(self, dim=None, keepdim=False):
-        from mytorch.basic_ops import sum as func
+        from mytorch.reduce_ops import sum as func
+
+        return func(self, dim, keepdim)
+
+    def mean(self, dim=None, keepdim=False):
+        from mytorch.reduce_ops import mean as func
 
         return func(self, dim, keepdim)
 

@@ -29,7 +29,7 @@ def linear_regression(x, y, device):
         output_tensor = linear(input_tensor)
         minus = output_tensor - ans
         power2 = minus**2
-        loss = power2.sum() / len(x)
+        loss = power2.mean()
         loss.backward()
         optimizer.step()
 
