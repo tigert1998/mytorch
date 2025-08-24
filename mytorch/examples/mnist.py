@@ -1,3 +1,5 @@
+import numpy as np
+
 from mytorch.nn.conv import Conv2d
 from mytorch.nn.relu import ReLU
 from mytorch.nn.linear import Linear
@@ -6,6 +8,9 @@ from mytorch.nn.sequential import Sequential
 from mytorch.nn.max_pool import MaxPool2d
 from mytorch.utils.data.mnist_dataset import MNISTDataset
 from mytorch.utils.data.data_loader import DataLoader
+from mytorch.nn.functional.cross_entropy import cross_entropy
+from mytorch.optim.sgd import SGD
+from mytorch.tensor import Tensor
 
 
 class LeNet(Module):
@@ -40,7 +45,22 @@ if __name__ == "__main__":
     train_data_loader = DataLoader(train_dataset, batch_size=256, shuffle=True)
     test_data_loader = DataLoader(test_dataset, batch_size=256, shuffle=False)
 
-    for x, y in train_data_loader:
-        print(x.shape)
-        print(y.shape)
-        exit(0)
+    model = LeNet()
+    model.to("cuda:0")
+    optimizer = SGD(model.parameters(), lr=1e-5)
+
+    for epoch in range(50):
+        for i, (x, y) in enumerate(train_data_loader):
+            input_cpu_array = (
+                (x.cpu_array.reshape((-1, 1, 28, 28)) / 255.0 - 0.1307) / 0.3081
+            ).astype(np.float32)
+            input_tensor = Tensor(cpu_array=input_cpu_array, device="cuda:0")
+            logits = model(input_tensor)
+            loss = cross_entropy(logits, y.to("cuda:0"))
+            optimizer.zero_grad()
+            loss.backward()
+            if i % 16 == 0:
+                print(
+                    f"Epoch #{epoch} step #{i} loss: {loss.to("cpu").cpu_array.item()}"
+                )
+            optimizer.step()

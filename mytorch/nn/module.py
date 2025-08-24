@@ -36,7 +36,11 @@ class Module:
 
     def to(self, device):
         for key in self._parameters.keys():
-            self._parameters[key] = self._parameters[key].to(device)
+            self.register_parameter(key, self._parameters[key].to(device))
+        for key in self._buffers.keys():
+            self.register_buffer(key, self._buffers[key].to(device))
+        for module in self._modules.values():
+            module.to(device)
 
     def __setattr__(self, name, value):
         if isinstance(value, Module):

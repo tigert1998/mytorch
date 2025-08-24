@@ -155,15 +155,26 @@ class Tensor:
 
         if self.device.type == "cpu":
             # cpu to cuda
-            return Tensor(cpu_array=self.cpu_array, device=device)
+            return Tensor(
+                cpu_array=self.cpu_array,
+                device=device,
+                requires_grad=self.requires_grad,
+            )
         elif self.device.type == "cuda":
             if device.type == "cpu":
                 # cuda to cpu
                 array = self._read_cuda_memory()
-                return Tensor(cpu_array=array, device="cpu")
+                return Tensor(
+                    cpu_array=array, device="cpu", requires_grad=self.requires_grad
+                )
             elif device.type == "cuda:":
                 # cuda to cuda
-                new_tensor = Tensor(dtype=self.dtype, shape=self.shape, device=device)
+                new_tensor = Tensor(
+                    dtype=self.dtype,
+                    shape=self.shape,
+                    device=device,
+                    requires_grad=self.requires_grad,
+                )
                 check_cuda_errors(
                     driver.cuMemcpyPeer(
                         new_tensor.cuda_ptr.ptr,
