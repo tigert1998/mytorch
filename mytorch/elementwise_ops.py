@@ -137,7 +137,7 @@ _fill = elementwise_operation_forward(
 
 
 def _normal_forward_op_cpu(x, seed, mean, stddev):
-    np.random.seed(seed)
+    # TODO: random seed
     x.cpu_array = np.random.normal(mean, stddev, x.shape)
 
 

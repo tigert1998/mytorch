@@ -29,7 +29,9 @@ class MNISTDataset(Dataset):
         "test_y": "t10k-labels-idx1-ubyte.gz",
     }
 
-    def __init__(self, root, train=True, download=False):
+    def __init__(
+        self, root, train=True, download=False, transform=None, target_transform=None
+    ):
         super().__init__()
         self.root = root
         os.makedirs(osp.join(self.root, "MNIST"), exist_ok=True)
@@ -37,6 +39,8 @@ class MNISTDataset(Dataset):
             self._download()
         self._read_bytes(train)
         self._size = struct.unpack(">i", self.x_buf[4:8])[0]
+        self._transform = transform
+        self._target_transform = target_transform
 
     def _read_bytes(self, train):
         prefix = "train" if train else "test"
@@ -63,7 +67,14 @@ class MNISTDataset(Dataset):
         return label[0]
 
     def __getitem__(self, index):
-        return self._get_img(index), self._get_label(index)
+        img = self._get_img(index)
+        if self._transform is not None:
+            img = self._transform(img)
+
+        label = self._get_label(index)
+        if self._target_transform is not None:
+            label = self._target_transform(label)
+        return img, label
 
     def __len__(self):
         return self._size

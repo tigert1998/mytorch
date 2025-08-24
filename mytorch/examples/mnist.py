@@ -5,6 +5,7 @@ from mytorch.nn.module import Module
 from mytorch.nn.sequential import Sequential
 from mytorch.nn.max_pool import MaxPool2d
 from mytorch.utils.data.mnist_dataset import MNISTDataset
+from mytorch.utils.data.data_loader import DataLoader
 
 
 class LeNet(Module):
@@ -34,4 +35,12 @@ class LeNet(Module):
 
 
 if __name__ == "__main__":
-    pass
+    train_dataset = MNISTDataset("./datasets", True)
+    test_dataset = MNISTDataset("./datasets", False)
+    train_data_loader = DataLoader(train_dataset, batch_size=256, shuffle=True)
+    test_data_loader = DataLoader(test_dataset, batch_size=256, shuffle=False)
+
+    for x, y in train_data_loader:
+        print(x.shape)
+        print(y.shape)
+        exit(0)
