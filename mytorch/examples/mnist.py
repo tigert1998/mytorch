@@ -4,6 +4,7 @@ from mytorch.nn.linear import Linear
 from mytorch.nn.module import Module
 from mytorch.nn.sequential import Sequential
 from mytorch.nn.max_pool import MaxPool2d
+from mytorch.utils.data.mnist_dataset import MNISTDataset
 
 
 class LeNet(Module):
@@ -30,3 +31,7 @@ class LeNet(Module):
         x = x.reshape((-1, 16 * 5 * 5))
         x = self.layer2(x)
         return x
+
+
+if __name__ == "__main__":
+    pass

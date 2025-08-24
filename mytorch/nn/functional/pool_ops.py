@@ -111,6 +111,7 @@ def pool_operation_backward(name):
             cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
                 "pool_ops.cu", func_name, input.device.index
             )
+            input_grad.fill_(0)
             cuda_kernel.run(
                 (output_shape[0] * output_shape[1], output_shape[2], output_shape[3]),
                 (1, 1, 1),
