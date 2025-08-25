@@ -59,6 +59,16 @@ ELEMENTWISE_OPERATION_FORWARD(fill, ALPHA_ARG_TYPE, ALPHA_ARG, FILL)
   } while (0)
 ELEMENTWISE_OPERATION_FORWARD(normal, NORMAL_ARG_TYPE, NORMAL_ARG, NORMAL)
 
+#define UNIFORM_ARG_TYPE(T) unsigned long long seed, T a, T b,
+#define UNIFORM_ARG() seed, a, b,
+#define UNIFORM()                                         \
+  do {                                                    \
+    curandState_t state;                                  \
+    curand_init(seed, xid, 0, &state);                    \
+    input[xid] = (T)curand_uniform(&state) * (b - a) + a; \
+  } while (0)
+ELEMENTWISE_OPERATION_FORWARD(uniform, UNIFORM_ARG_TYPE, UNIFORM_ARG, UNIFORM)
+
 #define RELU() output[xid] = fmax((T)0, input[xid])
 #define RELU_BACKWARD() \
   input_grad[xid] = input[xid] > (T)0 ? output_grad[xid] : (T)0

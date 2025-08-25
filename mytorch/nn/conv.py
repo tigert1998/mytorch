@@ -1,8 +1,10 @@
 import numpy as np
+import math
 
 from mytorch.nn.module import Module
 from mytorch.nn.parameter import Parameter, Tensor
 from mytorch.nn.functional.conv import conv2d
+from mytorch.nn.init import kaiming_uniform_, _calculate_fan_in_and_fan_out
 
 
 class Conv2d(Module):
@@ -54,6 +56,16 @@ class Conv2d(Module):
             )
         else:
             self.register_parameter("bias", None)
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        kaiming_uniform_(self.weight, a=math.sqrt(5))
+        if self.bias is not None:
+            fan_in, _ = _calculate_fan_in_and_fan_out(self.weight)
+            if fan_in != 0:
+                bound = 1 / math.sqrt(fan_in)
+                self.bias.uniform_(-bound, bound)
 
     def forward(self, input):
         return conv2d(input, self.weight, self.bias, self.stride, self.padding)

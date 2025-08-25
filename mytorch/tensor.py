@@ -307,6 +307,12 @@ class Tensor:
 
         _normal(self, _seed, mean, std)
 
+    def uniform_(self, a, b):
+        from mytorch.elementwise_ops import _uniform
+        from mytorch.rand import _seed
+
+        _uniform(self, _seed, a, b)
+
     def backward(self):
         instance = DAGTracker.instance()
         instance.backward(self)

@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     model = LeNet()
     model.to("cuda:0")
-    optimizer = SGD(model.parameters(), lr=1e-5)
+    optimizer = SGD(model.parameters())
 
     for epoch in range(50):
         for i, (x, y) in enumerate(train_data_loader):
