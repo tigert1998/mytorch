@@ -5,7 +5,7 @@ from mytorch.nn.module import Module
 from mytorch.nn.parameter import Parameter, Tensor
 
 
-class BatchNorm2d(Module):
+class _BatchNormBase(Module):
     def __init__(
         self,
         num_features,
@@ -55,9 +55,11 @@ class BatchNorm2d(Module):
             self.bias.fill_(0)
 
     def forward(self, x: Tensor):
+        reduce_axis = (0, *range(2, len(x.shape)))
+        reshape_shape = (1, self.num_features, *([1] * len(x.shape[2:])))
         if self.training:
-            batch_mean = x.mean(dim=(0, 2, 3), keepdim=True)
-            batch_var = x.var(dim=(0, 2, 3), keepdim=True, correction=0)
+            batch_mean = x.mean(dim=reduce_axis, keepdim=True)
+            batch_var = x.var(dim=reduce_axis, keepdim=True, correction=0)
 
             if self.track_running_stats:
                 self.running_mean.copy_(
@@ -72,17 +74,49 @@ class BatchNorm2d(Module):
             x_normalized = (x - batch_mean) / (batch_var + self.eps) ** 0.5
         else:
             if self.track_running_stats:
-                mean = self.running_mean.reshape((1, self.num_features, 1, 1))
-                var = self.running_var.reshape((1, self.num_features, 1, 1))
+                mean = self.running_mean.reshape(reshape_shape)
+                var = self.running_var.reshape(reshape_shape)
             else:
-                mean = x.mean(dim=(0, 2, 3), keepdim=True)
-                var = x.var(dim=(0, 2, 3), keepdim=True, correction=0)
+                mean = x.mean(dim=reduce_axis, keepdim=True)
+                var = x.var(dim=reduce_axis, keepdim=True, correction=0)
 
             x_normalized = (x - mean) / (var + self.eps) ** 0.5
 
         if self.affine:
-            weight = self.weight.reshape((1, self.num_features, 1, 1))
-            bias = self.bias.reshape((1, self.num_features, 1, 1))
+            weight = self.weight.reshape(reshape_shape)
+            bias = self.bias.reshape(reshape_shape)
             return weight * x_normalized + bias
         else:
             return x_normalized
+
+
+class BatchNorm1d(_BatchNormBase):
+    def __init__(
+        self,
+        num_features,
+        eps=0.00001,
+        momentum=0.1,
+        affine=True,
+        track_running_stats=True,
+        device="cpu",
+        dtype=np.float32,
+    ):
+        super().__init__(
+            num_features, eps, momentum, affine, track_running_stats, device, dtype
+        )
+
+
+class BatchNorm2d(_BatchNormBase):
+    def __init__(
+        self,
+        num_features,
+        eps=0.00001,
+        momentum=0.1,
+        affine=True,
+        track_running_stats=True,
+        device="cpu",
+        dtype=np.float32,
+    ):
+        super().__init__(
+            num_features, eps, momentum, affine, track_running_stats, device, dtype
+        )

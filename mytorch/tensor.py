@@ -119,7 +119,7 @@ class Tensor:
             raise InvalidDeviceError(self.device.type)
 
         self.dtype = dtype
-        self.shape = shape
+        self.shape = tuple(shape) if shape is not None else None
         self.cuda_ptr = None
         self.cpu_array = None
 

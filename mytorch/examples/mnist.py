@@ -5,6 +5,7 @@ from mytorch.nn.relu import ReLU
 from mytorch.nn.linear import Linear
 from mytorch.nn.module import Module
 from mytorch.nn.sequential import Sequential
+from mytorch.nn.batch_norm import BatchNorm2d
 from mytorch.nn.max_pool import MaxPool2d
 from mytorch.utils.data.mnist_dataset import MNISTDataset
 from mytorch.utils.data.data_loader import DataLoader
@@ -18,16 +19,20 @@ class LeNet(Module):
         super().__init__()
         self.layer1 = Sequential(
             Conv2d(1, 6, kernel_size=5, padding=2),
+            BatchNorm2d(6),
             ReLU(),
             MaxPool2d(2, 2),
             Conv2d(6, 16, 5),
+            BatchNorm2d(16),
             ReLU(),
             MaxPool2d(2, 2),
         )
         self.layer2 = Sequential(
             Linear(16 * 5 * 5, 120),
+            BatchNorm2d(120),
             ReLU(),
             Linear(120, 84),
+            BatchNorm2d(84),
             ReLU(),
             Linear(84, 10),
         )
@@ -52,7 +57,7 @@ if __name__ == "__main__":
     for epoch in range(50):
         for i, (x, y) in enumerate(train_data_loader):
             input_cpu_array = (
-                (x.cpu_array.reshape((-1, 1, 28, 28)) / 255.0 - 0.1307) / 0.3081
+                ((x.cpu_array.reshape((-1, 1, 28, 28)) / 255.0) - 0.1307) / 0.3081
             ).astype(np.float32)
             input_tensor = Tensor(cpu_array=input_cpu_array, device="cuda:0")
             logits = model(input_tensor)
@@ -60,7 +65,13 @@ if __name__ == "__main__":
             optimizer.zero_grad()
             loss.backward()
             if i % 16 == 0:
+                loss_cpu = loss.to("cpu").cpu_array.item()
+                accuracy = (
+                    (logits.to("cpu").cpu_array.argmax(1) == y.cpu_array)
+                    .astype(np.float32)
+                    .mean()
+                )
                 print(
-                    f"Epoch #{epoch} step #{i} loss: {loss.to("cpu").cpu_array.item()}"
+                    f"Epoch #{epoch}, step #{i}, accuracy: {accuracy* 100:0.2f}%, loss: {loss_cpu}"
                 )
             optimizer.step()

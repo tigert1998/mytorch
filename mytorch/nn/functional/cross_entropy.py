@@ -15,6 +15,7 @@ def cross_entropy(input, target):
         device=input.device,
         requires_grad=requires_grad,
     )
+    tensor.fill_(0)
 
     if input.device.type == "cuda":
         if input.dtype == np.float32:
