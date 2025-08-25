@@ -96,12 +96,14 @@ def conv2d_backward(output_grad, input, weight, bias=None, stride=1, padding=0):
     ]
 
     input_grad = Tensor(shape=input.shape, dtype=input.dtype, device=input.device)
+    input_grad.fill_(0)
     weight_grad = Tensor(shape=weight.shape, dtype=weight.dtype, device=weight.device)
-    bias_grad = (
-        None
-        if bias is None
-        else Tensor(shape=bias.shape, dtype=bias.dtype, device=bias.device)
-    )
+    weight_grad.fill_(0)
+    if bias is not None:
+        bias_grad = Tensor(shape=bias.shape, dtype=bias.dtype, device=bias.device)
+        bias_grad.fill_(0)
+    else:
+        bias_grad = None
 
     if input.device.type == "cuda":
         assert (

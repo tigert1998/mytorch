@@ -55,6 +55,7 @@ if __name__ == "__main__":
     optimizer = SGD(model.parameters())
 
     for epoch in range(50):
+        model.train()
         for i, (x, y) in enumerate(train_data_loader):
             input_cpu_array = (
                 ((x.cpu_array.reshape((-1, 1, 28, 28)) / 255.0) - 0.1307) / 0.3081
@@ -64,7 +65,7 @@ if __name__ == "__main__":
             loss = cross_entropy(logits, y.to("cuda:0"))
             optimizer.zero_grad()
             loss.backward()
-            if i % 16 == 0:
+            if (i + 1) % 16 == 0:
                 loss_cpu = loss.to("cpu").cpu_array.item()
                 accuracy = (
                     (logits.to("cpu").cpu_array.argmax(1) == y.cpu_array)
@@ -75,3 +76,20 @@ if __name__ == "__main__":
                     f"Epoch #{epoch}, step #{i}, accuracy: {accuracy* 100:0.2f}%, loss: {loss_cpu}"
                 )
             optimizer.step()
+
+        model.eval()
+        correct = 0
+        for i, (x, y) in enumerate(test_data_loader):
+            input_cpu_array = (
+                ((x.cpu_array.reshape((-1, 1, 28, 28)) / 255.0) - 0.1307) / 0.3081
+            ).astype(np.float32)
+            input_tensor = Tensor(cpu_array=input_cpu_array, device="cuda:0")
+            logits = model(input_tensor)
+            correct += (
+                (logits.to("cpu").cpu_array.argmax(1) == y.cpu_array)
+                .astype(np.float32)
+                .sum()
+                .item()
+            )
+        accuracy = correct / len(test_dataset)
+        print(f"Epoch #{epoch}, test accuracy: {accuracy *100:0.2f}%")
