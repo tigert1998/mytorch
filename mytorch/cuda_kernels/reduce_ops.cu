@@ -20,27 +20,34 @@ __device__ int reduce_shape(int xid, int shape_n, int* shape,
   return to;
 }
 
-#define REDUCE_OPERATION_FORWARD(name, arg_type, arg, op)                     \
-  template <typename T>                                                       \
-  __global__ void name##_reference(int n, T* input, arg_type(T) int shape_n,  \
-                                   int* shape, int num_reduce_axis,           \
-                                   int* reduce_axis, T* output) {             \
-    int xid = blockIdx.x * blockDim.x + threadIdx.x;                          \
-    if (xid >= n) return;                                                     \
-    int to = reduce_shape(xid, shape_n, shape, num_reduce_axis, reduce_axis); \
-    op();                                                                     \
-  }                                                                           \
-  extern "C" __global__ void name##_reference_fp32(                           \
-      int n, float* input, arg_type(float) int shape_n, int* shape,           \
-      int num_reduce_axis, int* reduce_axis, float* output) {                 \
-    name##_reference(n, input, arg() shape_n, shape, num_reduce_axis,         \
-                     reduce_axis, output);                                    \
-  }                                                                           \
-  extern "C" __global__ void name##_reference_fp16(                           \
-      int n, half* input, arg_type(half) int shape_n, int* shape,             \
-      int num_reduce_axis, int* reduce_axis, half* output) {                  \
-    name##_reference(n, input, arg() shape_n, shape, num_reduce_axis,         \
-                     reduce_axis, output);                                    \
+#define REDUCE_OPERATION_FORWARD(name, arg_type, arg, op)                      \
+  template <typename T>                                                        \
+  __global__ void name##_reference(int n, T* input, arg_type(T) int shape_n,   \
+                                   int* shape, int num_reduce_axis,            \
+                                   int* reduce_axis, T* output) {              \
+    int lane_id = threadIdx.x % warpSize;                                      \
+    int warp_id = threadIdx.x / warpSize + blockIdx.x * blockDim.x / warpSize; \
+    int num_warps = gridDim.x * blockDim.x / warpSize;                         \
+    for (int i = warp_id * warpSize; i < n; i += num_warps * warpSize) {       \
+      int xid = i + lane_id;                                                   \
+      if (xid < n) {                                                           \
+        int to =                                                               \
+            reduce_shape(xid, shape_n, shape, num_reduce_axis, reduce_axis);   \
+        op();                                                                  \
+      }                                                                        \
+    }                                                                          \
+  }                                                                            \
+  extern "C" __global__ void name##_reference_fp32(                            \
+      int n, float* input, arg_type(float) int shape_n, int* shape,            \
+      int num_reduce_axis, int* reduce_axis, float* output) {                  \
+    name##_reference(n, input, arg() shape_n, shape, num_reduce_axis,          \
+                     reduce_axis, output);                                     \
+  }                                                                            \
+  extern "C" __global__ void name##_reference_fp16(                            \
+      int n, half* input, arg_type(half) int shape_n, int* shape,              \
+      int num_reduce_axis, int* reduce_axis, half* output) {                   \
+    name##_reference(n, input, arg() shape_n, shape, num_reduce_axis,          \
+                     reduce_axis, output);                                     \
   }
 
 #define REDUCE_OPERATION_BACKWARD(name, arg_type, arg, op_backward)            \
@@ -48,10 +55,17 @@ __device__ int reduce_shape(int xid, int shape_n, int* shape,
   __global__ void name##_backward_reference(                                   \
       int n, T* input, arg_type(T) int shape_n, int* shape,                    \
       int num_reduce_axis, int* reduce_axis, T* input_grad, T* output_grad) {  \
-    int xid = blockIdx.x * blockDim.x + threadIdx.x;                           \
-    if (xid >= n) return;                                                      \
-    int to = reduce_shape(xid, shape_n, shape, num_reduce_axis, reduce_axis);  \
-    op_backward();                                                             \
+    int lane_id = threadIdx.x % warpSize;                                      \
+    int warp_id = threadIdx.x / warpSize + blockIdx.x * blockDim.x / warpSize; \
+    int num_warps = gridDim.x * blockDim.x / warpSize;                         \
+    for (int i = warp_id * warpSize; i < n; i += num_warps * warpSize) {       \
+      int xid = i + lane_id;                                                   \
+      if (xid < n) {                                                           \
+        int to =                                                               \
+            reduce_shape(xid, shape_n, shape, num_reduce_axis, reduce_axis);   \
+        op_backward();                                                         \
+      }                                                                        \
+    }                                                                          \
   }                                                                            \
   extern "C" __global__ void name##_backward_reference_fp32(                   \
       int n, float* input, arg_type(float) int shape_n, int* shape,            \

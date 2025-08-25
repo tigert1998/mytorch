@@ -313,6 +313,9 @@ class Tensor:
 
         _uniform(self, _seed, a, b)
 
+    def item(self):
+        return self.to("cpu").cpu_array.item()
+
     def backward(self):
         instance = DAGTracker.instance()
         instance.backward(self)

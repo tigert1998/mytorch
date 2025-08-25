@@ -50,8 +50,8 @@ def elementwise_operation_forward(name, arg_types, no_grad_and_inplace, forward_
 
             num_elements = shape_size(x.shape)
             cuda_kernel.run(
-                ((num_elements + 255) // 256, 1, 1),
-                (256, 1, 1),
+                (128, 1, 1),
+                (128, 1, 1),
                 [
                     np.array(num_elements, dtype=np.int32),
                     x,
@@ -106,8 +106,8 @@ def elementwise_operation_backward(name, backward_op_cpu):
 
             num_elements = shape_size(output_grad.shape)
             cuda_kernel.run(
-                ((num_elements + 255) // 256, 1, 1),
-                (256, 1, 1),
+                (128, 1, 1),
+                (128, 1, 1),
                 [
                     np.array(num_elements, dtype=np.int32),
                     x,

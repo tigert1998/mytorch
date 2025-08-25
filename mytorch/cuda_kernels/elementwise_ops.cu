@@ -2,39 +2,47 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
-#define ELEMENTWISE_OPERATION_FORWARD(name, arg_type, arg, op)               \
-  template <typename T>                                                      \
-  __global__ void name##_reference(int n, T* input, arg_type(T) T* output) { \
-    int xid = blockIdx.x * blockDim.x + threadIdx.x;                         \
-    if (xid >= n) return;                                                    \
-    op();                                                                    \
-  }                                                                          \
-  extern "C" __global__ void name##_reference_fp32(                          \
-      int n, float* input, arg_type(float) float* output) {                  \
-    name##_reference(n, input, arg() output);                                \
-  }                                                                          \
-  extern "C" __global__ void name##_reference_fp16(                          \
-      int n, half* input, arg_type(half) half* output) {                     \
-    name##_reference(n, input, arg() output);                                \
+#define ELEMENTWISE_OPERATION_FORWARD(name, arg_type, arg, op)                 \
+  template <typename T>                                                        \
+  __global__ void name##_reference(int n, T* input, arg_type(T) T* output) {   \
+    int lane_id = threadIdx.x % warpSize;                                      \
+    int warp_id = threadIdx.x / warpSize + blockIdx.x * blockDim.x / warpSize; \
+    int num_warps = gridDim.x * blockDim.x / warpSize;                         \
+    for (int i = warp_id * warpSize; i < n; i += num_warps * warpSize) {       \
+      int xid = i + lane_id;                                                   \
+      if (xid < n) op();                                                       \
+    }                                                                          \
+  }                                                                            \
+  extern "C" __global__ void name##_reference_fp32(                            \
+      int n, float* input, arg_type(float) float* output) {                    \
+    name##_reference(n, input, arg() output);                                  \
+  }                                                                            \
+  extern "C" __global__ void name##_reference_fp16(                            \
+      int n, half* input, arg_type(half) half* output) {                       \
+    name##_reference(n, input, arg() output);                                  \
   }
 
-#define ELEMENTWISE_OPERATION_BACKWARD(name, arg_type, arg, op_backward) \
-  template <typename T>                                                  \
-  __global__ void name##_backward_reference(                             \
-      int n, T* input, arg_type(T) T* input_grad, T* output_grad) {      \
-    int xid = blockIdx.x * blockDim.x + threadIdx.x;                     \
-    if (xid >= n) return;                                                \
-    op_backward();                                                       \
-  }                                                                      \
-  extern "C" __global__ void name##_backward_reference_fp32(             \
-      int n, float* input, arg_type(float) float* input_grad,            \
-      float* output_grad) {                                              \
-    name##_backward_reference(n, input, arg() input_grad, output_grad);  \
-  }                                                                      \
-  extern "C" __global__ void name##_backward_reference_fp16(             \
-      int n, half* input, arg_type(half) half* input_grad,               \
-      half* output_grad) {                                               \
-    name##_backward_reference(n, input, arg() input_grad, output_grad);  \
+#define ELEMENTWISE_OPERATION_BACKWARD(name, arg_type, arg, op_backward)       \
+  template <typename T>                                                        \
+  __global__ void name##_backward_reference(                                   \
+      int n, T* input, arg_type(T) T* input_grad, T* output_grad) {            \
+    int lane_id = threadIdx.x % warpSize;                                      \
+    int warp_id = threadIdx.x / warpSize + blockIdx.x * blockDim.x / warpSize; \
+    int num_warps = gridDim.x * blockDim.x / warpSize;                         \
+    for (int i = warp_id * warpSize; i < n; i += num_warps * warpSize) {       \
+      int xid = i + lane_id;                                                   \
+      if (xid < n) op_backward();                                              \
+    }                                                                          \
+  }                                                                            \
+  extern "C" __global__ void name##_backward_reference_fp32(                   \
+      int n, float* input, arg_type(float) float* input_grad,                  \
+      float* output_grad) {                                                    \
+    name##_backward_reference(n, input, arg() input_grad, output_grad);        \
+  }                                                                            \
+  extern "C" __global__ void name##_backward_reference_fp16(                   \
+      int n, half* input, arg_type(half) half* input_grad,                     \
+      half* output_grad) {                                                     \
+    name##_backward_reference(n, input, arg() input_grad, output_grad);        \
   }
 
 #define ELEMENTWISE_OPERATION(name, arg_type, arg, op, op_backward) \

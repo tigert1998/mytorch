@@ -69,8 +69,8 @@ def reduce_operation_forward(name, arg_types, forward_op_cpu):
 
             num_elements = shape_size(tensor.shape)
             cuda_kernel.run(
-                ((num_elements + 255) // 256, 1, 1),
-                (256, 1, 1),
+                (128, 1, 1),
+                (128, 1, 1),
                 [
                     np.array(num_elements, np.int32),
                     tensor,
@@ -138,8 +138,8 @@ def reduce_operation_backward(name, backward_op_cpu):
 
             num_elements = shape_size(tensor.shape)
             cuda_kernel.run(
-                ((num_elements + 255) // 256, 1, 1),
-                (256, 1, 1),
+                (128, 1, 1),
+                (128, 1, 1),
                 [
                     np.array(num_elements),
                     tensor,

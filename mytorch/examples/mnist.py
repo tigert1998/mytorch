@@ -12,6 +12,7 @@ from mytorch.utils.data.data_loader import DataLoader
 from mytorch.nn.functional.cross_entropy import cross_entropy
 from mytorch.optim.sgd import SGD
 from mytorch.tensor import Tensor
+from mytorch.autograd import no_grad
 
 
 class LeNet(Module):
@@ -66,14 +67,14 @@ if __name__ == "__main__":
             optimizer.zero_grad()
             loss.backward()
             if (i + 1) % 16 == 0:
-                loss_cpu = loss.to("cpu").cpu_array.item()
+                loss = loss.item()
                 accuracy = (
                     (logits.to("cpu").cpu_array.argmax(1) == y.cpu_array)
                     .astype(np.float32)
                     .mean()
                 )
                 print(
-                    f"Epoch #{epoch}, step #{i}, accuracy: {accuracy* 100:0.2f}%, loss: {loss_cpu}"
+                    f"Epoch #{epoch}, step #{i}, accuracy: {accuracy* 100:0.2f}%, loss: {loss:0.4f}"
                 )
             optimizer.step()
 
@@ -84,7 +85,8 @@ if __name__ == "__main__":
                 ((x.cpu_array.reshape((-1, 1, 28, 28)) / 255.0) - 0.1307) / 0.3081
             ).astype(np.float32)
             input_tensor = Tensor(cpu_array=input_cpu_array, device="cuda:0")
-            logits = model(input_tensor)
+            with no_grad():
+                logits = model(input_tensor)
             correct += (
                 (logits.to("cpu").cpu_array.argmax(1) == y.cpu_array)
                 .astype(np.float32)
