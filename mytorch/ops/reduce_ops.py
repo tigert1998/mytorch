@@ -39,7 +39,6 @@ def reduce_operation_forward(name, arg_types, forward_op_cpu):
             device=tensor.device,
             requires_grad=requires_grad,
         )
-        output_tensor.fill_(0)
 
         if tensor.device.type == "cuda":
             if tensor.dtype == np.float32:
@@ -68,9 +67,13 @@ def reduce_operation_forward(name, arg_types, forward_op_cpu):
                 tensor_shape_ptr = reduce_axis_ptr = 0
 
             num_elements = shape_size(tensor.shape)
+            block_dim = (1024, 1, 1)
+            num_shared_bytes = (block_dim[0] // 32) * (
+                np.dtype(np.int64).itemsize + np.dtype(tensor).itemsize
+            )
             cuda_kernel.run(
-                (128, 1, 1),
-                (128, 1, 1),
+                (1, 32, 1),
+                block_dim,
                 [
                     np.array(num_elements, np.int32),
                     tensor,
@@ -81,6 +84,7 @@ def reduce_operation_forward(name, arg_types, forward_op_cpu):
                     np.array(reduce_axis_ptr, np.uint64),
                     output_tensor,
                 ],
+                num_shared_bytes,
             )
 
         elif tensor.device.type == "cpu":
@@ -138,8 +142,8 @@ def reduce_operation_backward(name, backward_op_cpu):
 
             num_elements = shape_size(tensor.shape)
             cuda_kernel.run(
-                (128, 1, 1),
-                (128, 1, 1),
+                (1, 32, 1),
+                (1024, 1, 1),
                 [
                     np.array(num_elements),
                     tensor,

@@ -96,8 +96,9 @@ class CudaCompiler:
         major, minor = self._arch(device_id)
         cuda_path = os.environ["CUDA_PATH"]
         cuda_include_paths = [
-            os.path.join(cuda_path, "include"),
-            os.path.join(cuda_path, "include/cccl"),
+            osp.join(cuda_path, "include"),
+            osp.join(cuda_path, "include/cccl"),
+            osp.join(osp.dirname(__file__), "../cuda_kernels/include"),
         ]
         opts = [
             b"--fmad=false",

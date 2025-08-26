@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
     model = CNN()
     model.to("cuda:0")
-    optimizer = SGD(model.parameters(), lr=1e-2)
+    optimizer = SGD(model.parameters(), lr=1e-1)
 
     for epoch in range(3):
         model.train()

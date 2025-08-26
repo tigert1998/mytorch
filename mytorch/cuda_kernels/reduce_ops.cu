@@ -2,54 +2,60 @@
 
 #include <cuda/std/limits>
 
-__device__ int reduce_shape(int xid, int shape_n, int* shape,
-                            int num_reduce_axis, int* reduce_axis) {
-  int tmp = xid, mul = 1, to = 0;
-  for (int i = shape_n - 1, j = num_reduce_axis - 1; i >= 0; i--) {
-    int dim = tmp % shape[i];
-    tmp /= shape[i];
-    int cur_shape = shape[i];
+#include "reduce_utils.cuh"
 
-    if (j >= 0 && i == reduce_axis[j]) {
-      dim = 0;
-      j--;
-      cur_shape = 1;
-    }
-    to += mul * dim;
-
-    mul *= cur_shape;
-  }
-  return to;
-}
-
-#define REDUCE_OPERATION_FORWARD(name, arg_type, arg, op)                      \
-  template <typename T>                                                        \
-  __global__ void name##_reference(int n, T* input, arg_type(T) int shape_n,   \
-                                   int* shape, int num_reduce_axis,            \
-                                   int* reduce_axis, T* output) {              \
-    int lane_id = threadIdx.x % warpSize;                                      \
-    int warp_id = threadIdx.x / warpSize + blockIdx.x * blockDim.x / warpSize; \
-    int num_warps = gridDim.x * blockDim.x / warpSize;                         \
-    for (int i = warp_id * warpSize; i < n; i += num_warps * warpSize) {       \
-      int xid = i + lane_id;                                                   \
-      if (xid < n) {                                                           \
-        int to =                                                               \
-            reduce_shape(xid, shape_n, shape, num_reduce_axis, reduce_axis);   \
-        op();                                                                  \
-      }                                                                        \
-    }                                                                          \
-  }                                                                            \
-  extern "C" __global__ void name##_reference_fp32(                            \
-      int n, float* input, arg_type(float) int shape_n, int* shape,            \
-      int num_reduce_axis, int* reduce_axis, float* output) {                  \
-    name##_reference(n, input, arg() shape_n, shape, num_reduce_axis,          \
-                     reduce_axis, output);                                     \
-  }                                                                            \
-  extern "C" __global__ void name##_reference_fp16(                            \
-      int n, half* input, arg_type(half) int shape_n, int* shape,              \
-      int num_reduce_axis, int* reduce_axis, half* output) {                   \
-    name##_reference(n, input, arg() shape_n, shape, num_reduce_axis,          \
-                     reduce_axis, output);                                     \
+#define REDUCE_OPERATION_FORWARD(name, arg_type, arg, init, op, final)        \
+  template <typename T>                                                       \
+  __global__ void name##_reference(int n, T* input, arg_type(T) int shape_n,  \
+                                   int* shape, int num_reduce_axis,           \
+                                   int* reduce_axis, T* output) {             \
+    int lane_id = threadIdx.x % warpSize;                                     \
+    int warp_id = threadIdx.x / warpSize;                                     \
+    const int num_warps = blockDim.x / warpSize;                              \
+    extern __shared__ char shared[];                                          \
+    T* buffer = (T*)shared;                                                   \
+    int inner = 1;                                                            \
+    for (int i = 0; i < num_reduce_axis; i++) inner *= shape[reduce_axis[i]]; \
+    int outer = n / inner;                                                    \
+    for (int x = blockIdx.y; x < outer; x += gridDim.y) {                     \
+      T value = init();                                                       \
+      for (int i = warp_id * warpSize + lane_id; i < inner;                   \
+           i += num_warps * warpSize) {                                       \
+        int idx = restore_reduction(shape_n, shape, num_reduce_axis,          \
+                                    reduce_axis, x, i);                       \
+        op(value, input[idx]);                                                \
+      }                                                                       \
+      for (int offset = warpSize / 2; offset > 0; offset >>= 1) {             \
+        T other_value = __shfl_xor_sync(0xFFFFFFFF, value, offset);           \
+        op(value, other_value);                                               \
+      }                                                                       \
+      if (lane_id == 0) {                                                     \
+        buffer[warp_id] = value;                                              \
+      }                                                                       \
+      __syncthreads();                                                        \
+      if (warp_id == 0) {                                                     \
+        T value = lane_id < num_warps ? buffer[lane_id] : init();             \
+        for (int offset = warpSize / 2; offset > 0; offset >>= 1) {           \
+          T other_value = __shfl_xor_sync(0xFFFFFFFF, value, offset);         \
+          op(value, other_value);                                             \
+        }                                                                     \
+        if (lane_id == 0) {                                                   \
+          output[x] = final(value);                                           \
+        }                                                                     \
+      }                                                                       \
+    }                                                                         \
+  }                                                                           \
+  extern "C" __global__ void name##_reference_fp32(                           \
+      int n, float* input, arg_type(float) int shape_n, int* shape,           \
+      int num_reduce_axis, int* reduce_axis, float* output) {                 \
+    name##_reference(n, input, arg() shape_n, shape, num_reduce_axis,         \
+                     reduce_axis, output);                                    \
+  }                                                                           \
+  extern "C" __global__ void name##_reference_fp16(                           \
+      int n, half* input, arg_type(half) int shape_n, int* shape,             \
+      int num_reduce_axis, int* reduce_axis, half* output) {                  \
+    name##_reference(n, input, arg() shape_n, shape, num_reduce_axis,         \
+                     reduce_axis, output);                                    \
   }
 
 #define REDUCE_OPERATION_BACKWARD(name, arg_type, arg, op_backward)            \
@@ -58,14 +64,17 @@ __device__ int reduce_shape(int xid, int shape_n, int* shape,
       int n, T* input, arg_type(T) int shape_n, int* shape,                    \
       int num_reduce_axis, int* reduce_axis, T* input_grad, T* output_grad) {  \
     int lane_id = threadIdx.x % warpSize;                                      \
-    int warp_id = threadIdx.x / warpSize + blockIdx.x * blockDim.x / warpSize; \
-    int num_warps = gridDim.x * blockDim.x / warpSize;                         \
-    for (int i = warp_id * warpSize; i < n; i += num_warps * warpSize) {       \
-      int xid = i + lane_id;                                                   \
-      if (xid < n) {                                                           \
-        int to =                                                               \
-            reduce_shape(xid, shape_n, shape, num_reduce_axis, reduce_axis);   \
-        op_backward();                                                         \
+    int warp_id = threadIdx.x / warpSize;                                      \
+    const int num_warps = blockDim.x / warpSize;                               \
+    int inner = 1;                                                             \
+    for (int i = 0; i < num_reduce_axis; i++) inner *= shape[reduce_axis[i]];  \
+    int outer = n / inner;                                                     \
+    for (int x = blockIdx.y; x < outer; x += gridDim.y) {                      \
+      for (int i = warp_id * warpSize + lane_id; i < inner;                    \
+           i += num_warps * warpSize) {                                        \
+        int idx = restore_reduction(shape_n, shape, num_reduce_axis,           \
+                                    reduce_axis, x, i);                        \
+        op_backward(input_grad[idx], output_grad[x]);                          \
       }                                                                        \
     }                                                                          \
   }                                                                            \
@@ -84,18 +93,17 @@ __device__ int reduce_shape(int xid, int shape_n, int* shape,
                               reduce_axis, input_grad, output_grad);           \
   }
 
-#define REDUCE_OPERATION(name, arg_type, arg, op, op_backward) \
-  REDUCE_OPERATION_FORWARD(name, arg_type, arg, op)            \
-  REDUCE_OPERATION_BACKWARD(name, arg_type, arg, op_backward)
-
 #define SCALE_ARG_TYPE(T) T scale,
 #define SCALE_ARG() scale,
 #define NO_ARG_TYPE(T)
 #define NO_ARG()
 
-#define SUM_SCALE() atomicAdd(&output[to], input[xid] * scale)
-#define SUM_SCALE_BACKWARD() input_grad[xid] = output_grad[to] * scale
-REDUCE_OPERATION(sum_scale, SCALE_ARG_TYPE, SCALE_ARG, SUM_SCALE,
-                 SUM_SCALE_BACKWARD)
+#define SUM_SCALE_INIT() (T)0
+#define SUM_SCALE(x, y) x += y
+#define SUM_SCALE_FINAL(x) (x * scale)
+#define SUM_SCALE_BACKWARD(ig, og) ig = og * scale
 
-
+REDUCE_OPERATION_FORWARD(sum_scale, SCALE_ARG_TYPE, SCALE_ARG, SUM_SCALE_INIT,
+                         SUM_SCALE, SUM_SCALE_FINAL)
+REDUCE_OPERATION_BACKWARD(sum_scale, SCALE_ARG_TYPE, SCALE_ARG,
+                          SUM_SCALE_BACKWARD)
