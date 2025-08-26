@@ -145,7 +145,7 @@ class CudaKernel:
                 assert False, error_msg
         return np_args
 
-    def run(self, grid_dim, block_dim, args):
+    def run(self, grid_dim, block_dim, args, num_shared_bytes=0):
         self.stream.set_device()
         args = self._prepare_args(args)
         ptr_array = np.array([i.ctypes.data for i in args], dtype=np.uint64)
@@ -154,7 +154,7 @@ class CudaKernel:
                 self.kernel,
                 *grid_dim,
                 *block_dim,
-                0,
+                num_shared_bytes,
                 self.stream.stream,
                 ptr_array.ctypes.data,
                 0,

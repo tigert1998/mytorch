@@ -22,7 +22,7 @@ def _calculate_reduce_shape(shape, axis, keepdim):
 
 def reduce_operation_forward(name, arg_types, forward_op_cpu):
     def forward(tensor, reduce_axis=None, keepdim=False, *args):
-        from mytorch.elementwise_ops import extract_arg_list
+        from mytorch.ops.elementwise_ops import extract_arg_list
 
         arg_list = extract_arg_list(arg_types, args, tensor)
 

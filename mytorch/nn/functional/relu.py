@@ -1,4 +1,4 @@
-from mytorch.elementwise_ops import _relu
+from mytorch.ops.elementwise_ops import _relu
 
 
 def relu(x):

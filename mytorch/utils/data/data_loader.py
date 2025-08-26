@@ -3,7 +3,7 @@ import numbers
 
 from mytorch.utils.data.dataset import Dataset
 from mytorch.tensor import Tensor
-from mytorch.rand import Generator
+from mytorch.rand_generator import Generator
 
 
 class DataLoader:

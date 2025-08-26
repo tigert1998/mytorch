@@ -200,38 +200,38 @@ class Tensor:
         return f'tensor({repr(array)}, device="{self.device}")'
 
     def fill_(self, value):
-        from mytorch.elementwise_ops import _fill
+        from mytorch.ops.elementwise_ops import _fill
 
         _fill(self, value)
 
     def copy_(self, tensor):
-        from mytorch.broadcast_binary_ops import _copy
+        from mytorch.ops.broadcast_binary_ops import _copy
 
         assert isinstance(tensor, Tensor) and self.dtype == tensor.dtype
         _copy(self, tensor.to(self.device))
 
     def sum(self, dim=None, keepdim=False):
-        from mytorch.reduce_ops import sum as func
+        from mytorch.ops.reduce_ops import sum as func
 
         return func(self, dim, keepdim)
 
     def mean(self, dim=None, keepdim=False):
-        from mytorch.reduce_ops import mean as func
+        from mytorch.ops.reduce_ops import mean as func
 
         return func(self, dim, keepdim)
 
     def var(self, dim=None, correction=1, keepdim=False):
-        from mytorch.reduce_ops import var as func
+        from mytorch.ops.reduce_ops import var as func
 
         return func(self, dim, correction, keepdim)
 
     def std(self, dim=None, correction=1, keepdim=False):
-        from mytorch.reduce_ops import std as func
+        from mytorch.ops.reduce_ops import std as func
 
         return func(self, dim, correction, keepdim)
 
     def reshape(self, shape):
-        from mytorch.basic_ops import reshape as func
+        from mytorch.ops.basic_ops import reshape as func
 
         return func(self, shape)
 
@@ -252,64 +252,64 @@ class Tensor:
         return other
 
     def __add__(self, other):
-        from mytorch.broadcast_binary_ops import add
+        from mytorch.ops.broadcast_binary_ops import add
 
         return add(self, self._cast_other_to_tensor(other), 1)
 
     def __radd__(self, other):
-        from mytorch.broadcast_binary_ops import add
+        from mytorch.ops.broadcast_binary_ops import add
 
         return add(self._cast_other_to_tensor(other), self, 1)
 
     def __sub__(self, other):
-        from mytorch.broadcast_binary_ops import sub
+        from mytorch.ops.broadcast_binary_ops import sub
 
         return sub(self, self._cast_other_to_tensor(other), 1)
 
     def __rsub__(self, other):
-        from mytorch.broadcast_binary_ops import sub
+        from mytorch.ops.broadcast_binary_ops import sub
 
         return sub(self._cast_other_to_tensor(other), self, 1)
 
     def __mul__(self, other):
-        from mytorch.broadcast_binary_ops import mul
+        from mytorch.ops.broadcast_binary_ops import mul
 
         return mul(self, self._cast_other_to_tensor(other))
 
     def __rmul__(self, other):
-        from mytorch.broadcast_binary_ops import mul
+        from mytorch.ops.broadcast_binary_ops import mul
 
         return mul(self._cast_other_to_tensor(other), self)
 
     def __truediv__(self, other):
-        from mytorch.broadcast_binary_ops import div
+        from mytorch.ops.broadcast_binary_ops import div
 
         return div(self, self._cast_other_to_tensor(other))
 
     def __rtruediv__(self, other):
-        from mytorch.broadcast_binary_ops import div
+        from mytorch.ops.broadcast_binary_ops import div
 
         return div(self._cast_other_to_tensor(other), self)
 
     def __pow__(self, other):
-        from mytorch.broadcast_binary_ops import pow
+        from mytorch.ops.broadcast_binary_ops import pow
 
         return pow(self, self._cast_other_to_tensor(other))
 
     def __rpow__(self, other):
-        from mytorch.broadcast_binary_ops import pow
+        from mytorch.ops.broadcast_binary_ops import pow
 
         return pow(self._cast_other_to_tensor(other), self)
 
     def normal_(self, mean, std):
-        from mytorch.elementwise_ops import _normal
-        from mytorch.rand import Generator
+        from mytorch.ops.elementwise_ops import _normal
+        from mytorch.rand_generator import Generator
 
         _normal(self, Generator.instance().generate(), mean, std)
 
     def uniform_(self, a, b):
-        from mytorch.elementwise_ops import _uniform
-        from mytorch.rand import Generator
+        from mytorch.ops.elementwise_ops import _uniform
+        from mytorch.rand_generator import Generator
 
         _uniform(self, Generator.instance().generate(), a, b)
 
@@ -317,9 +317,14 @@ class Tensor:
         return self.to("cpu").cpu_array.item()
 
     def permute(self, permute_array):
-        from mytorch.basic_ops import permute as func
+        from mytorch.ops.basic_ops import permute as func
 
         return func(self, permute_array)
+
+    def max(self, dim=None, keepdim=False):
+        from mytorch.ops.max import max as func
+
+        return func(self, dim, keepdim)
 
     def backward(self):
         instance = DAGTracker.instance()

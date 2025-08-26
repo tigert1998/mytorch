@@ -4,8 +4,8 @@ import math
 from mytorch.nn.module import Module
 from mytorch.nn.parameter import Parameter
 from mytorch.tensor import Tensor
-from mytorch.basic_ops import mm, reshape, permute
-from mytorch.broadcast_binary_ops import add
+from mytorch.ops.basic_ops import mm, reshape, permute
+from mytorch.ops.broadcast_binary_ops import add
 from mytorch.nn.init import kaiming_uniform_, _calculate_fan_in_and_fan_out
 
 

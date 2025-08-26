@@ -3,7 +3,7 @@ import numpy as np
 from mytorch.autograd import DAGTracker
 from mytorch.tensor import Tensor, InvalidDeviceError, InvalidDataTypeError
 from mytorch.cuda.env import CudaEnv
-from mytorch.basic_ops import _cuda_bmm
+from mytorch.ops.basic_ops import _cuda_bmm
 
 
 def _im2col_input(input, weight, bias, stride=1, padding=0):

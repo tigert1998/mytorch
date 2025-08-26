@@ -70,7 +70,7 @@ if __name__ == "__main__":
             if (i + 1) % 16 == 0:
                 loss = loss.item()
                 accuracy = (
-                    (logits.to("cpu").cpu_array.argmax(1) == y.cpu_array)
+                    (logits.max(dim=(1,))[1].to("cpu").cpu_array == y.cpu_array)
                     .astype(np.float32)
                     .mean()
                 )
@@ -89,7 +89,7 @@ if __name__ == "__main__":
             with no_grad():
                 logits = model(input_tensor)
             correct += (
-                (logits.to("cpu").cpu_array.argmax(1) == y.cpu_array)
+                (logits.max(dim=(1,))[1].to("cpu").cpu_array == y.cpu_array)
                 .astype(np.float32)
                 .sum()
                 .item()

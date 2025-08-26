@@ -28,7 +28,7 @@ def broadcast_binary_opeartion_forward(
     name, arg_types, no_grad_and_inplace, forward_op_cpu
 ):
     def forward(x, y, *args):
-        from mytorch.elementwise_ops import extract_arg_list
+        from mytorch.ops.elementwise_ops import extract_arg_list
 
         assert x.device == y.device
 
