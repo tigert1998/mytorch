@@ -5,24 +5,20 @@ from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
 
 
-def extract_arg_list(arg_types, args, kwargs, default_dtype):
-    def cast_dtype(dtype):
+def extract_arg_list(arg_types, args, reference_tensor):
+    arg_list = []
+    for i, dic in enumerate(arg_types):
+        dtype = dic["dtype"]
         if dtype == "default":
-            return default_dtype
-        return dtype
-
-    return [
-        np.array(args[i] if i < len(args) else default, dtype=cast_dtype(dtype))
-        for i, (default, dtype) in enumerate(arg_types["args"])
-    ] + [
-        np.array(kwargs.get(name, default), dtype=cast_dtype(dtype))
-        for name, default, dtype in arg_types["kwargs"]
-    ]
+            dtype = reference_tensor.dtype
+        value = np.array(args[i], dtype=dtype)
+        arg_list.append(value)
+    return arg_list
 
 
 def elementwise_operation_forward(name, arg_types, no_grad_and_inplace, forward_op_cpu):
-    def forward(x, *args, **kwargs):
-        arg_list = extract_arg_list(arg_types, args, kwargs, x.dtype)
+    def forward(x, *args):
+        arg_list = extract_arg_list(arg_types, args, x)
         requires_grad = not no_grad_and_inplace and x.requires_grad
         if x.device.type == "cuda":
             if x.dtype == np.float32:
@@ -132,7 +128,7 @@ def _fill_forward_op_cpu(x, value):
 
 
 _fill = elementwise_operation_forward(
-    "fill", {"args": [(1, "default")], "kwargs": []}, True, _fill_forward_op_cpu
+    "fill", [{"dtype": "default"}], True, _fill_forward_op_cpu
 )
 
 
@@ -143,7 +139,7 @@ def _normal_forward_op_cpu(x, seed, mean, stddev):
 
 _normal = elementwise_operation_forward(
     "normal",
-    {"args": [(0, np.uint64), (0, "default"), (1, "default")], "kwargs": []},
+    [{"dtype": np.uint64}, {"dtype": "default"}, {"dtype": "default"}],
     True,
     _normal_forward_op_cpu,
 )
@@ -156,7 +152,7 @@ def _uniform_forward_op_cpu(x, seed, a, b):
 
 _uniform = elementwise_operation_forward(
     "uniform",
-    {"args": [(0, np.uint64), (0, "default"), (1, "default")], "kwargs": []},
+    [{"dtype": np.uint64}, {"dtype": "default"}, {"dtype": "default"}],
     True,
     _uniform_forward_op_cpu,
 )
@@ -174,7 +170,7 @@ def _relu_backward_op_cpu(x, output_grad):
 
 _relu = elementwise_operation_forward(
     "relu",
-    {"args": [], "kwargs": []},
+    [],
     False,
     _relu_forward_op_cpu,
 )

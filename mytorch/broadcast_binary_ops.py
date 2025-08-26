@@ -27,12 +27,12 @@ def _calculate_broadcast_shape(x_shape, y_shape):
 def broadcast_binary_opeartion_forward(
     name, arg_types, no_grad_and_inplace, forward_op_cpu
 ):
-    def forward(x, y, *args, **kwargs):
+    def forward(x, y, *args):
         from mytorch.elementwise_ops import extract_arg_list
 
         assert x.device == y.device
 
-        arg_list = extract_arg_list(arg_types, args, kwargs, x.dtype)
+        arg_list = extract_arg_list(arg_types, args, x)
 
         shape = _calculate_broadcast_shape(x.shape, y.shape)
 
@@ -200,7 +200,7 @@ def _add_backward_op_cpu(x, y, alpha, output_grad):
 
 
 add = broadcast_binary_opeartion_forward(
-    "add", {"args": [(1, "default")], "kwargs": []}, False, _add_forward_op_cpu
+    "add", [{"dtype": "default"}], False, _add_forward_op_cpu
 )
 add_backward = broadcast_binary_opeartion_backward("add", _add_backward_op_cpu)
 
@@ -214,7 +214,7 @@ def _sub_backward_op_cpu(x, y, alpha, output_grad):
 
 
 sub = broadcast_binary_opeartion_forward(
-    "sub", {"args": [(1, "default")], "kwargs": []}, False, _sub_forward_op_cpu
+    "sub", [{"dtype": "default"}], False, _sub_forward_op_cpu
 )
 sub_backward = broadcast_binary_opeartion_backward("sub", _sub_backward_op_cpu)
 
@@ -227,9 +227,7 @@ def _mul_backward_op_cpu(x, y, output_grad):
     return y * output_grad.cpu_array, x * output_grad.cpu_array
 
 
-mul = broadcast_binary_opeartion_forward(
-    "mul", {"args": [], "kwargs": []}, False, _mul_forward_op_cpu
-)
+mul = broadcast_binary_opeartion_forward("mul", [], False, _mul_forward_op_cpu)
 mul_backward = broadcast_binary_opeartion_backward("mul", _mul_backward_op_cpu)
 
 
@@ -243,9 +241,7 @@ def _div_backward_op_cpu(x, y, output_grad):
     return x_grad_cpu_array, y_grad_cpu_array
 
 
-div = broadcast_binary_opeartion_forward(
-    "div", {"args": [], "kwargs": []}, False, _div_forward_op_cpu
-)
+div = broadcast_binary_opeartion_forward("div", [], False, _div_forward_op_cpu)
 div_backward = broadcast_binary_opeartion_backward("div", _div_backward_op_cpu)
 
 
@@ -259,9 +255,7 @@ def _pow_backward_op_cpu(x, y, output_grad):
     return x_grad_cpu_array, y_grad_cpu_array
 
 
-pow = broadcast_binary_opeartion_forward(
-    "pow", {"args": [], "kwargs": []}, False, _pow_forward_op_cpu
-)
+pow = broadcast_binary_opeartion_forward("pow", [], False, _pow_forward_op_cpu)
 pow_backward = broadcast_binary_opeartion_backward("pow", _pow_backward_op_cpu)
 
 
@@ -269,6 +263,4 @@ def _copy_forward_op_cpu(x, y):
     np.copyto(x.cpu_array, y.cpu_array)
 
 
-_copy = broadcast_binary_opeartion_forward(
-    "copy", {"args": [], "kwargs": []}, True, _copy_forward_op_cpu
-)
+_copy = broadcast_binary_opeartion_forward("copy", [], True, _copy_forward_op_cpu)

@@ -21,10 +21,10 @@ def _calculate_reduce_shape(shape, axis, keepdim):
 
 
 def reduce_operation_forward(name, arg_types, forward_op_cpu):
-    def forward(tensor, reduce_axis=None, keepdim=False, *args, **kwargs):
+    def forward(tensor, reduce_axis=None, keepdim=False, *args):
         from mytorch.elementwise_ops import extract_arg_list
 
-        arg_list = extract_arg_list(arg_types, args, kwargs, tensor.dtype)
+        arg_list = extract_arg_list(arg_types, args, tensor)
 
         if reduce_axis is None:
             reduce_axis = tuple(range(len(tensor.shape)))
@@ -179,7 +179,7 @@ def _sum_scale_backward_op_cpu(output_grad_cpu_array, reduce_axis, keepdim, scal
 
 
 _sum_scale = reduce_operation_forward(
-    "sum_scale", {"args": [(1, "default")], "kwargs": []}, _sum_scale_forward_op_cpu
+    "sum_scale", [{"dtype": "default"}], _sum_scale_forward_op_cpu
 )
 
 _sum_scale_backward = reduce_operation_backward("sum_scale", _sum_scale_backward_op_cpu)

@@ -61,5 +61,5 @@ class Linear(Module):
         x = reshape(x, (-1, self.in_features))
         x = mm(x, permute(self.weight, (1, 0)))
         if self.bias is not None:
-            x = add(x, self.bias)
+            x = x + self.bias
         return reshape(x, b + (self.out_features,))

@@ -254,22 +254,22 @@ class Tensor:
     def __add__(self, other):
         from mytorch.broadcast_binary_ops import add
 
-        return add(self, self._cast_other_to_tensor(other))
+        return add(self, self._cast_other_to_tensor(other), 1)
 
     def __radd__(self, other):
         from mytorch.broadcast_binary_ops import add
 
-        return add(self._cast_other_to_tensor(other), self)
+        return add(self._cast_other_to_tensor(other), self, 1)
 
     def __sub__(self, other):
         from mytorch.broadcast_binary_ops import sub
 
-        return sub(self, self._cast_other_to_tensor(other))
+        return sub(self, self._cast_other_to_tensor(other), 1)
 
     def __rsub__(self, other):
         from mytorch.broadcast_binary_ops import sub
 
-        return sub(self._cast_other_to_tensor(other), self)
+        return sub(self._cast_other_to_tensor(other), self, 1)
 
     def __mul__(self, other):
         from mytorch.broadcast_binary_ops import mul
