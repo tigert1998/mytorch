@@ -316,6 +316,11 @@ class Tensor:
     def item(self):
         return self.to("cpu").cpu_array.item()
 
+    def permute(self, permute_array):
+        from mytorch.basic_ops import permute as func
+
+        return func(self, permute_array)
+
     def backward(self):
         instance = DAGTracker.instance()
         instance.backward(self)

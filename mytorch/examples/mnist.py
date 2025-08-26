@@ -15,32 +15,33 @@ from mytorch.tensor import Tensor
 from mytorch.autograd import no_grad
 
 
-class LeNet(Module):
+class CNN(Module):
     def __init__(self):
         super().__init__()
         self.layer1 = Sequential(
-            Conv2d(1, 6, kernel_size=5, padding=2),
-            BatchNorm2d(6),
+            Conv2d(1, 32, kernel_size=3, padding=1),
+            BatchNorm2d(32),
             ReLU(),
             MaxPool2d(2, 2),
-            Conv2d(6, 16, 5),
-            BatchNorm2d(16),
+            Conv2d(32, 128, kernel_size=3, padding=1),
+            BatchNorm2d(128),
+            ReLU(),
+            MaxPool2d(2, 2),
+            Conv2d(128, 32, kernel_size=3, padding=1),
+            BatchNorm2d(32),
             ReLU(),
             MaxPool2d(2, 2),
         )
         self.layer2 = Sequential(
-            Linear(16 * 5 * 5, 120),
-            BatchNorm2d(120),
+            Linear(32 * 3 * 3, 128),
             ReLU(),
-            Linear(120, 84),
-            BatchNorm2d(84),
-            ReLU(),
-            Linear(84, 10),
+            Linear(128, 10),
         )
 
     def forward(self, x):
+        batch_size = x.shape[0]
         x = self.layer1(x)
-        x = x.reshape((-1, 16 * 5 * 5))
+        x = x.reshape((batch_size, -1))
         x = self.layer2(x)
         return x
 
@@ -48,14 +49,14 @@ class LeNet(Module):
 if __name__ == "__main__":
     train_dataset = MNISTDataset("./datasets", True)
     test_dataset = MNISTDataset("./datasets", False)
-    train_data_loader = DataLoader(train_dataset, batch_size=256, shuffle=True)
-    test_data_loader = DataLoader(test_dataset, batch_size=256, shuffle=False)
+    train_data_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+    test_data_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
-    model = LeNet()
+    model = CNN()
     model.to("cuda:0")
-    optimizer = SGD(model.parameters())
+    optimizer = SGD(model.parameters(), lr=1e-2)
 
-    for epoch in range(50):
+    for epoch in range(3):
         model.train()
         for i, (x, y) in enumerate(train_data_loader):
             input_cpu_array = (
