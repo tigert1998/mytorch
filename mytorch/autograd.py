@@ -130,7 +130,7 @@ class DAGTracker:
             device=tensor.device,
         )
         for initial_tensor in initial_tensors:
-            if initial_tensor is tensor:
+            if initial_tensor is tensor or not initial_tensor.requires_grad:
                 continue
             initial_tensor.grad = Tensor(
                 shape=initial_tensor.shape,
@@ -142,7 +142,10 @@ class DAGTracker:
         for node, idx in order:
             backward_func = self._backward_funcs[node]
             output_tensors = self._node_outputs[(node, idx)]
-            output_tensor_grads = [tensor.grad for tensor in output_tensors]
+            output_tensor_grads = [
+                tensor.grad if tensor.requires_grad else tensor
+                for tensor in output_tensors
+            ]
             input_tensors_grads = backward_func(
                 *output_tensor_grads, *self._node_input_args[(node, idx)]
             )

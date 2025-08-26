@@ -42,7 +42,7 @@ def max(tensor, reduce_axis=None, keepdim=False):
             raise InvalidDataTypeError(tensor.dtype)
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "reduce_ops.cu", func_name, tensor.device.index
+            "max.cu", func_name, tensor.device.index
         )
 
         tensor_shape_num_bytes = len(tensor.shape) * np.dtype(np.int32).itemsize
@@ -79,7 +79,7 @@ def max(tensor, reduce_axis=None, keepdim=False):
         )
 
     elif tensor.device.type == "cpu":
-        ...
+        raise NotImplementedError()
 
     else:
         raise InvalidDeviceError(tensor.device.type)
@@ -90,3 +90,58 @@ def max(tensor, reduce_axis=None, keepdim=False):
         )
 
     return output_tensor, indices_tensor
+
+
+@DAGTracker.instance().register_backward_function("max")
+def max_backward(output_grad, indices_tensor, tensor, reduce_axis, keepdim):
+    input_grad = Tensor(dtype=tensor.dtype, shape=tensor.shape, device=tensor.device)
+
+    if tensor.device.type == "cuda":
+        if tensor.dtype == np.float32:
+            func_name = "max_backward_reference_fp32"
+        elif tensor.dtype == np.float16:
+            func_name = "max_backward_reference_fp16"
+        else:
+            raise InvalidDataTypeError(tensor.dtype)
+        cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
+        cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
+            "max.cu", func_name, tensor.device.index
+        )
+
+        tensor_shape_num_bytes = len(tensor.shape) * np.dtype(np.int32).itemsize
+        reduce_axis_num_bytes = len(reduce_axis) * np.dtype(np.int32).itemsize
+        if tensor_shape_num_bytes + reduce_axis_num_bytes > 0:
+            cuda_mem = CudaMemory(tensor_shape_num_bytes + reduce_axis_num_bytes)
+            cuda_mem.write(
+                np.array(list(tensor.shape) + list(reduce_axis), dtype=np.int32)
+            )
+            tensor_shape_ptr = int(cuda_mem.ptr)
+            reduce_axis_ptr = tensor_shape_ptr + tensor_shape_num_bytes
+        else:
+            tensor_shape_ptr = reduce_axis_ptr = 0
+        grid_dim = (1, 32, 1)
+        block_dim = (1024, 1, 1)
+        num_elements = shape_size(tensor.shape)
+        cuda_kernel.run(
+            grid_dim,
+            block_dim,
+            [
+                np.array(num_elements, np.int32),
+                tensor,
+                np.array(len(tensor.shape), np.int32),
+                np.array(tensor_shape_ptr, np.uint64),
+                np.array(len(reduce_axis), np.int32),
+                np.array(reduce_axis_ptr, np.uint64),
+                indices_tensor,
+                input_grad,
+                output_grad,
+            ],
+        )
+
+    elif tensor.device.type == "cpu":
+        raise NotImplementedError()
+
+    else:
+        raise InvalidDeviceError(tensor.device.type)
+
+    return [input_grad]

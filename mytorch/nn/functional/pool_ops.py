@@ -63,7 +63,7 @@ def pool_operation_forward(name):
             )
 
         elif x.device.type == "cpu":
-            ...
+            raise NotImplementedError()
 
         else:
             raise InvalidDeviceError(x.device.type)
@@ -133,7 +133,7 @@ def pool_operation_backward(name):
             )
 
         elif input.device.type == "cpu":
-            ...
+            raise NotImplementedError()
 
         else:
             raise InvalidDeviceError(input.device.type)

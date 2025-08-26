@@ -72,7 +72,7 @@ def _im2col_input(input, weight, bias, stride=1, padding=0):
         )
 
     elif input.device.type == "cpu":
-        ...
+        raise NotImplementedError()
 
     else:
         raise InvalidDeviceError(input.device.type)
@@ -135,7 +135,7 @@ def _reverse_im2col_input(a_tensor, input, weight, bias, stride=1, padding=0):
         )
 
     elif input.device.type == "cpu":
-        ...
+        raise NotImplementedError()
 
     else:
         raise InvalidDeviceError(input.device.type)
@@ -203,7 +203,7 @@ def _im2col_weight(input, weight, bias, stride=1, padding=0):
         )
 
     elif input.device.type == "cpu":
-        ...
+        raise NotImplementedError()
 
     else:
         raise InvalidDeviceError(input.device.type)
@@ -257,7 +257,7 @@ def _reverse_im2col_weight(b_tensor, input, weight, bias, stride=1, padding=0):
         )
 
     elif input.device.type == "cpu":
-        ...
+        raise NotImplementedError()
 
     else:
         raise InvalidDeviceError(input.device.type)
@@ -294,7 +294,7 @@ def conv2d(input, weight, bias=None, stride=1, padding=0):
         tensor.requires_grad = requires_grad
 
     elif input.device.type == "cpu":
-        ...
+        raise NotImplementedError()
 
     else:
         raise InvalidDeviceError(input.device.type)
@@ -336,7 +336,7 @@ def conv2d_backward(output_grad, input, weight, bias=None, stride=1, padding=0):
         )
 
     elif input.device.type == "cpu":
-        ...
+        raise NotImplementedError()
 
     else:
         raise InvalidDeviceError(input.device.type)
