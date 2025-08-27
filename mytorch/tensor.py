@@ -148,7 +148,9 @@ class Tensor:
                 np.dtype(self.dtype).itemsize * shape_size(self.shape)
             )
 
-    def to(self, device):
+        assert not self.requires_grad or np.issubdtype(self.dtype, np.floating)
+
+    def _to_device(self, device):
         device = Device(device)
         if self.device == device:
             return self
@@ -185,6 +187,18 @@ class Tensor:
                     )
                 )
                 return new_tensor
+
+    def _to_dtype(self, dtype):
+        from mytorch.ops.cast import _cast
+
+        return _cast(self, dtype)
+
+    def to(self, device=None, dtype=None):
+        if device is None:
+            device = self.device
+        if dtype is None:
+            dtype = self.dtype
+        return self._to_device(device)._to_dtype(dtype)
 
     def _read_cuda_memory(self) -> np.ndarray:
         return self.cuda_ptr.read(self.shape, self.dtype)

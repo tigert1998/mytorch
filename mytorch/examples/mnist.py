@@ -59,10 +59,9 @@ if __name__ == "__main__":
     for epoch in range(3):
         model.train()
         for i, (x, y) in enumerate(train_data_loader):
-            input_cpu_array = (
-                ((x.cpu_array.reshape((-1, 1, 28, 28)) / 255.0) - 0.1307) / 0.3081
-            ).astype(np.float32)
-            input_tensor = Tensor(cpu_array=input_cpu_array, device="cuda:0")
+            input_tensor = (
+                x.to("cuda:0", np.float32).reshape((-1, 1, 28, 28)) / 255.0 - 0.1307
+            ) / 0.3081
             logits = model(input_tensor)
             loss = cross_entropy(logits, y.to("cuda:0"))
             optimizer.zero_grad()
@@ -82,10 +81,9 @@ if __name__ == "__main__":
         model.eval()
         correct = 0
         for i, (x, y) in enumerate(test_data_loader):
-            input_cpu_array = (
-                ((x.cpu_array.reshape((-1, 1, 28, 28)) / 255.0) - 0.1307) / 0.3081
-            ).astype(np.float32)
-            input_tensor = Tensor(cpu_array=input_cpu_array, device="cuda:0")
+            input_tensor = (
+                x.to("cuda:0", np.float32).reshape((-1, 1, 28, 28)) / 255.0 - 0.1307
+            ) / 0.3081
             with no_grad():
                 logits = model(input_tensor)
             correct += (

@@ -87,9 +87,12 @@ class CudaCompiler:
         )
         return major, minor
 
-    def compile(self, path, device_id):
-        with open(path, "r") as f:
-            content = f.read()
+    def compile(self, path, device_id, source=None):
+        if source is not None:
+            content = source
+        else:
+            with open(path, "r") as f:
+                content = f.read()
         prog = check_cuda_errors(
             nvrtc.nvrtcCreateProgram(content.encode(), path.encode(), 0, [], [])
         )
@@ -184,13 +187,14 @@ class CudaKernelAndStreamManager:
             self._streams[device_id] = CudaStream(device_id, self._cuda_context_manager)
         return self._streams[device_id]
 
-    def get_kernel(self, cu_file_path, func_name, device_id):
+    def get_kernel(self, cu_file_path, func_name, device_id, source=None):
         stream = self.get_stream(device_id)
         stream.set_device()
         if self._modules.get(device_id, {}).get(cu_file_path) is None:
             ptx = self._cuda_compiler.compile(
                 osp.join(osp.dirname(__file__), "../cuda_kernels", cu_file_path),
                 device_id,
+                source=source,
             )
             if self._modules.get(device_id) is None:
                 self._modules[device_id] = {}
