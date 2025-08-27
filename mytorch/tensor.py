@@ -340,6 +340,11 @@ class Tensor:
 
         return func(self, dim, keepdim)
 
+    def eq(self, other):
+        from mytorch.ops.eq import eq as func
+
+        return func(self, self._cast_other_to_tensor(other))
+
     def backward(self):
         instance = DAGTracker.instance()
         instance.backward(self)

@@ -1,10 +1,11 @@
 #include <cuda_fp16.h>
 
+#include <cuda/std/cstdint>
 #include <cuda/std/limits>
 
 template <typename T>
 __global__ void cross_entropy_reference(int batch_size, int num_classes,
-                                        T* input, int* labels, T* output) {
+                                        T* input, int64_t* labels, T* output) {
   const int tid = threadIdx.x;
   const int warp_id = tid / warpSize;
   const int lane_id = tid % warpSize;
@@ -51,20 +52,26 @@ __global__ void cross_entropy_reference(int batch_size, int num_classes,
   }
 }
 
-extern "C" __global__ void cross_entropy_reference_fp32(
-    int batch_size, int num_classes, float* input, int* labels, float* output) {
+extern "C" __global__ void cross_entropy_reference_fp32(int batch_size,
+                                                        int num_classes,
+                                                        float* input,
+                                                        int64_t* labels,
+                                                        float* output) {
   cross_entropy_reference(batch_size, num_classes, input, labels, output);
 }
 
-extern "C" __global__ void cross_entropy_reference_fp16(
-    int batch_size, int num_classes, half* input, int* labels, half* output) {
+extern "C" __global__ void cross_entropy_reference_fp16(int batch_size,
+                                                        int num_classes,
+                                                        half* input,
+                                                        int64_t* labels,
+                                                        half* output) {
   cross_entropy_reference(batch_size, num_classes, input, labels, output);
 }
 
 template <typename T>
 __global__ void cross_entropy_backward_reference(int batch_size,
                                                  int num_classes, T* input,
-                                                 int* labels, T* input_grad,
+                                                 int64_t* labels, T* input_grad,
                                                  T* output_grad) {
   const int tid = threadIdx.x;
   const int warp_id = tid / warpSize;
@@ -108,15 +115,15 @@ __global__ void cross_entropy_backward_reference(int batch_size,
 }
 
 extern "C" __global__ void cross_entropy_backward_reference_fp32(
-    int batch_size, int num_classes, float* input, int* labels,
+    int batch_size, int num_classes, float* input, int64_t* labels,
     float* input_grad, float* output_grad) {
   cross_entropy_backward_reference(batch_size, num_classes, input, labels,
                                    input_grad, output_grad);
 }
 
 extern "C" __global__ void cross_entropy_backward_reference_fp16(
-    int batch_size, int num_classes, half* input, int* labels, half* input_grad,
-    half* output_grad) {
+    int batch_size, int num_classes, half* input, int64_t* labels,
+    half* input_grad, half* output_grad) {
   cross_entropy_backward_reference(batch_size, num_classes, input, labels,
                                    input_grad, output_grad);
 }

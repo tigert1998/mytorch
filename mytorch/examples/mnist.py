@@ -62,17 +62,16 @@ if __name__ == "__main__":
             input_tensor = (
                 x.to("cuda:0", np.float32).reshape((-1, 1, 28, 28)) / 255.0 - 0.1307
             ) / 0.3081
+            target = y.to("cuda:0", np.int64)
             logits = model(input_tensor)
-            loss = cross_entropy(logits, y.to("cuda:0"))
+            loss = cross_entropy(logits, target)
             optimizer.zero_grad()
             loss.backward()
             if (i + 1) % 16 == 0:
                 loss = loss.item()
                 accuracy = (
-                    (logits.max(dim=(1,))[1].to("cpu").cpu_array == y.cpu_array)
-                    .astype(np.float32)
-                    .mean()
-                )
+                    logits.max(dim=(1,))[1].eq(target).to(dtype=np.float32).mean()
+                ).item()
                 print(
                     f"Epoch #{epoch}, step #{i}, accuracy: {accuracy* 100:0.2f}%, loss: {loss:0.4f}"
                 )
@@ -84,13 +83,11 @@ if __name__ == "__main__":
             input_tensor = (
                 x.to("cuda:0", np.float32).reshape((-1, 1, 28, 28)) / 255.0 - 0.1307
             ) / 0.3081
+            target = y.to("cuda:0", np.int64)
             with no_grad():
                 logits = model(input_tensor)
             correct += (
-                (logits.max(dim=(1,))[1].to("cpu").cpu_array == y.cpu_array)
-                .astype(np.float32)
-                .sum()
-                .item()
+                logits.max(dim=(1,))[1].eq(target).to(dtype=np.float32).sum().item()
             )
         accuracy = correct / len(test_dataset)
         print(f"Epoch #{epoch}, test accuracy: {accuracy *100:0.2f}%")
