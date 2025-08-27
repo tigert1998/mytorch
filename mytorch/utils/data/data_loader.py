@@ -4,6 +4,7 @@ import numbers
 from mytorch.utils.data.dataset import Dataset
 from mytorch.tensor import Tensor
 from mytorch.rand_generator import Generator
+from mytorch.ops.cat import cat
 
 
 class DataLoader:
@@ -43,6 +44,9 @@ class DataLoader:
 
                 elif isinstance(element[i], numbers.Number):
                     tensor = Tensor(cpu_array=np.array(array))
+
+                elif isinstance(element[i], Tensor):
+                    tensor = cat([i.reshape((1, *i.shape)) for i in array], dim=0)
 
                 else:
                     assert (

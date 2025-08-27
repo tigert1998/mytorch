@@ -6,6 +6,7 @@ import os
 
 import numpy as np
 from tqdm import tqdm
+from PIL import Image
 
 from mytorch.utils.data.dataset import Dataset
 
@@ -86,6 +87,7 @@ class MNISTDataset(Dataset):
 
     def __getitem__(self, index):
         img = self.x[index]
+        img = Image.fromarray(img.astype(np.uint8))
         if self._transform is not None:
             img = self._transform(img)
 

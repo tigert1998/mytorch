@@ -7,12 +7,12 @@ from mytorch.nn.module import Module
 from mytorch.nn.sequential import Sequential
 from mytorch.nn.batch_norm import BatchNorm2d
 from mytorch.nn.max_pool import MaxPool2d
-from mytorch.utils.data.mnist_dataset import MNISTDataset
+from mytorch.vision.datasets.mnist_dataset import MNISTDataset
 from mytorch.utils.data.data_loader import DataLoader
 from mytorch.nn.functional.cross_entropy import cross_entropy
 from mytorch.optim.sgd import SGD
-from mytorch.tensor import Tensor
 from mytorch.autograd import no_grad
+from mytorch.vision.transforms import ToTensor, Normalize, Compose
 
 
 class CNN(Module):
@@ -47,8 +47,10 @@ class CNN(Module):
 
 
 if __name__ == "__main__":
-    train_dataset = MNISTDataset("./datasets", True)
-    test_dataset = MNISTDataset("./datasets", False)
+    transforms = Compose([ToTensor(), Normalize(0.1307, 0.3081)])
+
+    train_dataset = MNISTDataset("./datasets", True, transform=transforms)
+    test_dataset = MNISTDataset("./datasets", False, transform=transforms)
     train_data_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     test_data_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
@@ -59,9 +61,7 @@ if __name__ == "__main__":
     for epoch in range(3):
         model.train()
         for i, (x, y) in enumerate(train_data_loader):
-            input_tensor = (
-                x.to("cuda:0", np.float32).reshape((-1, 1, 28, 28)) / 255.0 - 0.1307
-            ) / 0.3081
+            input_tensor = x.to("cuda:0")
             target = y.to("cuda:0", np.int64)
             logits = model(input_tensor)
             loss = cross_entropy(logits, target)
@@ -80,9 +80,7 @@ if __name__ == "__main__":
         model.eval()
         correct = 0
         for i, (x, y) in enumerate(test_data_loader):
-            input_tensor = (
-                x.to("cuda:0", np.float32).reshape((-1, 1, 28, 28)) / 255.0 - 0.1307
-            ) / 0.3081
+            input_tensor = x.to("cuda:0")
             target = y.to("cuda:0", np.int64)
             with no_grad():
                 logits = model(input_tensor)
