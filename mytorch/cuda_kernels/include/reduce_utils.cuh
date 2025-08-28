@@ -17,3 +17,39 @@ inline __device__ int restore_reduction(int shape_n, int* shape,
 
   return dest;
 }
+
+template <typename T, typename Adapter, typename... Args>
+__global__ void ReduceTemplate(Args... args) {
+  int lane_id = threadIdx.x % warpSize;
+  int warp_id = threadIdx.x / warpSize;
+  const int num_warps = blockDim.x / warpSize;
+
+  extern __shared__ char shared[];
+  Adapter adapter(shared, args...);
+
+  for (int x = blockIdx.y; x < adapter.outer(); x += gridDim.y) {
+    adapter.InitOuter();
+    for (int i = warp_id * warpSize + lane_id; i < adapter.inner();
+         i += num_warps * warpSize) {
+      adapter.LoopInner(x, i);
+    }
+#pragma unroll
+    for (int offset = warpSize / 2; offset > 0; offset >>= 1) {
+      adapter.Aggregate(offset);
+    }
+    if (lane_id == 0) {
+      adapter.WriteBuffer(warp_id);
+    }
+    __syncthreads();
+    if (warp_id == 0) {
+      adapter.ReadBuffer(lane_id);
+#pragma unroll
+      for (int offset = warpSize / 2; offset > 0; offset >>= 1) {
+        adapter.Aggregate(offset);
+      }
+      if (lane_id == 0) {
+        adapter.WriteAnswer(x);
+      }
+    }
+  }
+}
