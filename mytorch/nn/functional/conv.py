@@ -47,9 +47,8 @@ def _im2col_input(input, weight, bias, stride=1, padding=0):
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
             "im2col.cu", func_name, input.device.index
         )
-        block_dim = [8, 8, 8]
-        shape = [output_shape[0], output_shape[2], output_shape[3]]
-        grid_dim = [(i + j - 1) // j * j for i, j in zip(shape, block_dim)]
+        block_dim = [32, 32, 1]
+        grid_dim = [32, 32, 1]
         cuda_kernel.run(
             grid_dim,
             block_dim,
