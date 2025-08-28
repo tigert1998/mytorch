@@ -1,5 +1,7 @@
 #include <cuda_fp16.h>
 
+#include <cuda/std/cstdint>
+
 #include "reduce_utils.cuh"
 
 template <typename T>
@@ -121,36 +123,68 @@ __global__ void compute_batch_norm(int batch_size, int channels, int height,
 }
 
 template <typename T>
+__global__ void UpdateRunningStats(int n, T* old_value, T momentum,
+                                   T* new_value) {
+  int lane_id = threadIdx.x % warpSize;
+  int warp_id = threadIdx.x / warpSize + blockIdx.x * blockDim.x / warpSize;
+  int num_warps = gridDim.x * blockDim.x / warpSize;
+  for (int i = warp_id * warpSize + lane_id; i < n; i += num_warps * warpSize) {
+    old_value[i] = ((T)1 - momentum) * old_value[i] + momentum * new_value[i];
+  }
+}
+
+template <typename T>
 __global__ void batch_norm2d_reference(int batch_size, int channels, int height,
                                        int width, T* input, T* mean, T* var,
-                                       T eps, T* weight, T* bias, T* output) {
-  dim3 grid = {1, 32, 1};
+                                       T eps, T* weight, T* bias,
+                                       int8_t training, T momentum,
+                                       T* running_mean, T* running_var,
+                                       T* output) {
+  bool track_running_stats = running_mean != nullptr && running_var != nullptr;
+  T *current_mean = nullptr, *current_var = nullptr;
+  if (training || !track_running_stats) {
+    dim3 grid = {1, 32, 1};
+    dim3 block = {1024, 1, 1};
+    int shared_bytes = (block.x / warpSize) * sizeof(T);
+    ReduceTemplate<T, MeanForward<T>><<<grid, block, shared_bytes>>>(
+        batch_size, channels, height, width, input, mean);
+    ReduceTemplate<T, VarForward<T>><<<grid, block, shared_bytes>>>(
+        batch_size, channels, height, width, input, mean, var);
+    if (track_running_stats) {
+      UpdateRunningStats<<<128, 128>>>(channels, running_mean, momentum, mean);
+      UpdateRunningStats<<<128, 128>>>(channels, running_var, momentum, var);
+    }
+    current_mean = mean;
+    current_var = var;
+  } else {
+    current_mean = running_mean;
+    current_var = running_var;
+  }
+
+  dim3 grid = {32, 1, 1};
   dim3 block = {1024, 1, 1};
-  int shared_bytes = (block.x / warpSize) * sizeof(T);
-  ReduceTemplate<T, MeanForward<T>><<<grid, block, shared_bytes>>>(
-      batch_size, channels, height, width, input, mean);
-  ReduceTemplate<T, VarForward<T>><<<grid, block, shared_bytes>>>(
-      batch_size, channels, height, width, input, mean, var);
-  grid = {32, 1, 1};
-  block = {1024, 1, 1};
   compute_batch_norm<<<grid, block>>>(batch_size, channels, height, width,
-                                      input, mean, var, eps, weight, bias,
-                                      output);
+                                      input, current_mean, current_var, eps,
+                                      weight, bias, output);
 }
 
 extern "C" __global__ void batch_norm2d_reference_fp32(
     int batch_size, int channels, int height, int width, float* input,
     float* mean, float* var, float eps, float* weight, float* bias,
+    int8_t training, float momentum, float* running_mean, float* running_var,
     float* output) {
   batch_norm2d_reference(batch_size, channels, height, width, input, mean, var,
-                         eps, weight, bias, output);
+                         eps, weight, bias, training, momentum, running_mean,
+                         running_var, output);
 }
 
 extern "C" __global__ void batch_norm2d_reference_fp16(
     int batch_size, int channels, int height, int width, half* input,
-    half* mean, half* var, half eps, half* weight, half* bias, half* output) {
+    half* mean, half* var, half eps, half* weight, half* bias, int8_t training,
+    half momentum, half* running_mean, half* running_var, half* output) {
   batch_norm2d_reference(batch_size, channels, height, width, input, mean, var,
-                         eps, weight, bias, output);
+                         eps, weight, bias, training, momentum, running_mean,
+                         running_var, output);
 }
 
 template <typename T>

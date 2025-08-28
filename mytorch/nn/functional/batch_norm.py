@@ -5,7 +5,9 @@ from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
 
 
-def _batch_norm_2d(input, weight, bias, eps):
+def _batch_norm_2d(
+    input, weight, bias, eps, training, momentum, running_mean, running_var
+):
     requires_grad = input.requires_grad
     batch_size, channels, height, width = input.shape
     if weight is not None and bias is not None:
@@ -55,9 +57,13 @@ def _batch_norm_2d(input, weight, bias, eps):
                 input,
                 mean,
                 var,
-                np.array(eps, dtype=np.float32),
+                np.array(eps, dtype=input.dtype),
                 weight,
                 bias,
+                np.array(training, dtype=np.int8),
+                np.array(momentum, dtype=input.dtype),
+                running_mean,
+                running_var,
                 tensor,
             ],
         )
