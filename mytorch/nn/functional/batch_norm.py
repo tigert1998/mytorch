@@ -116,7 +116,6 @@ def _batch_norm_2d_backward(output_grad, mean, var, input, weight, bias, eps):
             shape=(channels,),
             device=input.device,
         )
-
         cuda_kernel.run(
             (1, 1, 1),
             (1, 1, 1),

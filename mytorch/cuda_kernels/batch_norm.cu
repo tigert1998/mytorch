@@ -218,10 +218,10 @@ __global__ void compute_batch_norm_backward(
   int inner = batch_size * height * width;
   int outer = channels;
   extern __shared__ char shared[];
-  T* w_buffer = (T*)shared + 0 * channels * sizeof(T);
-  T* b_buffer = (T*)shared + 1 * channels * sizeof(T);
-  T* m_buffer = (T*)shared + 2 * channels * sizeof(T);
-  T* v_buffer = (T*)shared + 3 * channels * sizeof(T);
+  T* w_buffer = ((T*)shared) + 0 * warpSize;
+  T* b_buffer = ((T*)shared) + 1 * warpSize;
+  T* m_buffer = ((T*)shared) + 2 * warpSize;
+  T* v_buffer = ((T*)shared) + 3 * warpSize;
   bool has_weight_and_bias = weight != nullptr && bias != nullptr;
   for (int x = blockIdx.y; x < outer; x += gridDim.y) {
     int channel_idx = x;
@@ -294,12 +294,12 @@ __global__ void batch_norm2d_backward_reference(
   dim3 grid = {1, 32, 1};
   dim3 block = {1024, 1, 1};
 
-  int shared_bytes = 4 * channels * sizeof(T);
+  int shared_bytes = 4 * warpSize * sizeof(T);
   compute_batch_norm_backward<<<grid, block, shared_bytes>>>(
       batch_size, channels, height, width, input, mean, var, eps, weight, bias,
       input_grad, mean_grad, var_grad, weight_grad, bias_grad, output_grad);
 
-  shared_bytes = channels * sizeof(T);
+  shared_bytes = warpSize * sizeof(T);
   compute_var_backward<<<grid, block, shared_bytes>>>(
       batch_size, channels, height, width, input, mean, input_grad, mean_grad,
       var_grad);
