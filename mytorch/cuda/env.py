@@ -69,7 +69,7 @@ class CudaStream:
 
 class CudaCompiler:
     def __init__(self, cuda_context_manager):
-        self._cuda_context_manager = cuda_context_manager
+        self._cuda_context_manager: CudaContextManager = cuda_context_manager
 
     def _arch(self, device_id):
         cu_device = check_cuda_errors(driver.cuDeviceGet(device_id))
@@ -161,6 +161,7 @@ class CudaCompiler:
             cubin_ptr, cubin_size = check_cuda_errors(driver.cuLinkComplete(link_state))
         except:
             raise RuntimeError(f"Cuda link error: {error_log.decode()}")
+        self._cuda_context_manager.set_device(device_id)
         module = check_cuda_errors(driver.cuModuleLoadData(cubin_ptr))
         check_cuda_errors(driver.cuLinkDestroy(link_state))
         return module

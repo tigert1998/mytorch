@@ -53,7 +53,7 @@ __global__ void max_reference(int n, T* input, int shape_n, int* shape,
     __syncthreads();
 
     if (warp_id == 0) {
-      T max_value = lane_id < num_warps ? value_buffer[lane_id] : -inf;
+      T max_value = lane_id * num_warps < inner ? value_buffer[lane_id] : -inf;
       long long max_index = lane_id < num_warps ? indices_buffer[lane_id] : 0;
 #pragma unroll
       for (int offset = warpSize / 2; offset > 0; offset >>= 1) {

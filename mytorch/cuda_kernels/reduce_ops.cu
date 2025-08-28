@@ -34,7 +34,7 @@
       }                                                                       \
       __syncthreads();                                                        \
       if (warp_id == 0) {                                                     \
-        T value = lane_id < num_warps ? buffer[lane_id] : init();             \
+        T value = lane_id * num_warps < inner ? buffer[lane_id] : init();     \
         for (int offset = warpSize / 2; offset > 0; offset >>= 1) {           \
           T other_value = __shfl_xor_sync(0xFFFFFFFF, value, offset);         \
           op(value, other_value);                                             \

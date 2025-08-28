@@ -245,7 +245,7 @@ __global__ void compute_batch_norm_backward(
 
       input_grad[idx] = grad / (T)sqrt(var[channel_idx] + eps);
       mg += -grad / (T)sqrt(var[channel_idx] + eps);
-      vg += grad * (mean[channel_idx] - input[i]) /
+      vg += grad * (mean[channel_idx] - input[idx]) /
             ((T)2 * (T)pow((float)(var[channel_idx] + eps), (float)1.5));
     }
 #pragma unroll

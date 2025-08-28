@@ -86,7 +86,7 @@ def max(tensor, reduce_axis=None, keepdim=False):
 
     if requires_grad:
         DAGTracker.instance().add_node(
-            "max", [tensor, reduce_axis, keepdim], [output_tensor, indices_tensor]
+            "max", [tensor, reduce_axis, keepdim], [output_tensor], [indices_tensor]
         )
 
     return output_tensor, indices_tensor
