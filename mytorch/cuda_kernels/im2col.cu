@@ -75,39 +75,35 @@ __global__ void im2col_weight_reference(
     int batch_size, int input_h, int input_w, int in_channels, int out_channels,
     int kernel_size_h, int kernel_size_w, int stride_h, int stride_w,
     int padding_h, int padding_w, T *weight, T *bias, T *y) {
-  int xid = blockIdx.x * blockDim.x + threadIdx.x;
-  int yid = blockIdx.y * blockDim.y + threadIdx.y;
-  int zid = blockIdx.z * blockDim.z + threadIdx.z;
-
-  if (xid >= out_channels * in_channels || yid >= kernel_size_h ||
-      zid >= kernel_size_w)
-    return;
-
-  int out_c = xid / in_channels;
-  int in_c = xid % in_channels;
-
   int y_rows = out_channels;
   int y_cols =
-      kernel_size_h * kernel_size_w * in_channels + int(bias != nullptr);
+      in_channels * kernel_size_h * kernel_size_w + int(bias != nullptr);
   int y_cols_padded = (y_cols + 3) / 4 * 4;
 
-  int y_row_offset = y_cols_padded * out_c;
+  int xid = blockIdx.x * blockDim.x + threadIdx.x;
+  int yid = blockIdx.y * blockDim.y + threadIdx.y;
 
-  T weight_value = weight[((out_c * in_channels + in_c) * kernel_size_h + yid) *
-                              kernel_size_w +
-                          zid];
-
-  int y_col_idx = (in_c * kernel_size_h + yid) * kernel_size_w + zid;
-  y[y_row_offset + y_col_idx] = weight_value;
-
-  if (y_col_idx == 0) {
-    if (bias != nullptr) {
-      y[y_row_offset + y_cols - 1] = bias[out_c];
+  for (int i = xid; i < y_rows; i += blockDim.x * gridDim.x)
+    for (int j = yid; j < y_cols_padded; j += blockDim.y * gridDim.y) {
+      if (j >= y_cols) {
+        y[i * y_cols_padded + j] = 0;
+      } else if (j == y_cols - 1 && bias != nullptr) {
+        int out_channels_idx = i;
+        y[i * y_cols_padded + j] = bias[out_channels_idx];
+      } else {
+        int out_channels_idx = i;
+        int in_channels_idx = j / (kernel_size_h * kernel_size_w);
+        int kernel_size_h_idx = j / kernel_size_w % kernel_size_h;
+        int kernel_size_w_idx = j % kernel_size_w;
+        T weight_value =
+            weight[((out_channels_idx * in_channels + in_channels_idx) *
+                        kernel_size_h +
+                    kernel_size_h_idx) *
+                       kernel_size_w +
+                   kernel_size_w_idx];
+        y[i * y_cols_padded + j] = weight_value;
+      }
     }
-    for (int i = y_cols; i < y_cols_padded; i++) {
-      y[y_row_offset + i] = (T)0;
-    }
-  }
 }
 
 extern "C" __global__ void im2col_weight_reference_fp32(
@@ -189,34 +185,31 @@ __global__ void reverse_im2col_weight_reference(
     int batch_size, int input_h, int input_w, int in_channels, int out_channels,
     int kernel_size_h, int kernel_size_w, int stride_h, int stride_w,
     int padding_h, int padding_w, T *weight, T *bias, T *y) {
-  int output_h = (input_h + padding_h * 2 - kernel_size_h) / stride_h + 1;
-  int output_w = (input_w + padding_w * 2 - kernel_size_w) / stride_w + 1;
+  int y_rows = out_channels;
+  int y_cols =
+      in_channels * kernel_size_h * kernel_size_w + int(bias != nullptr);
+  int y_cols_padded = (y_cols + 3) / 4 * 4;
 
   int xid = blockIdx.x * blockDim.x + threadIdx.x;
   int yid = blockIdx.y * blockDim.y + threadIdx.y;
-  int zid = blockIdx.z * blockDim.z + threadIdx.z;
 
-  if (xid >= out_channels * in_channels || yid >= kernel_size_h ||
-      zid >= kernel_size_w)
-    return;
-
-  int out_c = xid / in_channels;
-  int in_c = xid % in_channels;
-
-  int y_rows = out_channels;
-  int y_cols =
-      kernel_size_h * kernel_size_w * in_channels + int(bias != nullptr);
-  int y_cols_padded = (y_cols + 3) / 4 * 4;
-
-  int y_row_offset = y_cols_padded * out_c;
-  int y_col_idx = (in_c * kernel_size_h + yid) * kernel_size_w + zid;
-
-  weight[((out_c * in_channels + in_c) * kernel_size_h + yid) * kernel_size_w +
-         zid] = y[y_row_offset + y_col_idx];
-
-  if (y_col_idx == 0 && bias != nullptr) {
-    bias[out_c] = y[y_row_offset + y_cols - 1];
-  }
+  for (int i = xid; i < y_rows; i += blockDim.x * gridDim.x)
+    for (int j = yid; j < y_cols; j += blockDim.y * gridDim.y) {
+      if (j == y_cols - 1 && bias != nullptr) {
+        int out_channels_idx = i;
+        bias[out_channels_idx] = y[i * y_cols_padded + j];
+      } else {
+        int out_channels_idx = i;
+        int in_channels_idx = j / (kernel_size_h * kernel_size_w);
+        int kernel_size_h_idx = j / kernel_size_w % kernel_size_h;
+        int kernel_size_w_idx = j % kernel_size_w;
+        weight[((out_channels_idx * in_channels + in_channels_idx) *
+                    kernel_size_h +
+                kernel_size_h_idx) *
+                   kernel_size_w +
+               kernel_size_w_idx] = y[i * y_cols_padded + j];
+      }
+    }
 }
 
 extern "C" __global__ void reverse_im2col_weight_reference_fp32(
