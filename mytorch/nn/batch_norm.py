@@ -120,3 +120,8 @@ class BatchNorm2d(_BatchNormBase):
         super().__init__(
             num_features, eps, momentum, affine, track_running_stats, device, dtype
         )
+
+    def forward(self, x):
+        from mytorch.nn.functional.batch_norm import _batch_norm_2d
+
+        return _batch_norm_2d(x, self.weight, self.bias, self.eps)

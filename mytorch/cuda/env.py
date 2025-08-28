@@ -106,6 +106,7 @@ class CudaCompiler:
         opts = [
             b"--fmad=false",
             f"--gpu-architecture=compute_{major}{minor}".encode(),
+            b"-dc",
             *[f"-I{i}".encode() for i in cuda_include_paths],
         ]
         try:
@@ -115,11 +116,54 @@ class CudaCompiler:
             log = b" " * log_size
             check_cuda_errors(nvrtc.nvrtcGetProgramLog(prog, log))
             raise RuntimeError(f"Cuda compile error: {log.decode()}")
-        ptr_size = check_cuda_errors(nvrtc.nvrtcGetPTXSize(prog))
-        ptx = b" " * ptr_size
+        ptx_size = check_cuda_errors(nvrtc.nvrtcGetPTXSize(prog))
+        ptx = b" " * ptx_size
         check_cuda_errors(nvrtc.nvrtcGetPTX(prog, ptx))
-        ptx = np.char.array(ptx)
-        return ptx
+        error_log_size = 8192
+        error_log = b" " * error_log_size
+        link_options = {
+            driver.CUjit_option.CU_JIT_OPTIMIZATION_LEVEL: 3,
+            driver.CUjit_option.CU_JIT_TARGET: driver.CUjit_target(major * 10 + minor),
+            driver.CUjit_option.CU_JIT_ERROR_LOG_BUFFER: error_log,
+            driver.CUjit_option.CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES: error_log_size,
+        }
+        link_state = check_cuda_errors(
+            driver.cuLinkCreate(
+                len(link_options),
+                list(link_options.keys()),
+                list(link_options.values()),
+            )
+        )
+        check_cuda_errors(
+            driver.cuLinkAddData(
+                link_state,
+                driver.CUjitInputType.CU_JIT_INPUT_PTX,
+                ptx,
+                ptx_size,
+                f"{path}".encode(),
+                0,
+                [],
+                [],
+            )
+        )
+        for lib in [f"{os.environ["CUDA_PATH"]}/lib/x64/cudadevrt.lib"]:
+            check_cuda_errors(
+                driver.cuLinkAddFile(
+                    link_state,
+                    driver.CUjitInputType.CU_JIT_INPUT_LIBRARY,
+                    lib.encode(),
+                    0,
+                    [],
+                    [],
+                )
+            )
+        try:
+            cubin_ptr, cubin_size = check_cuda_errors(driver.cuLinkComplete(link_state))
+        except:
+            raise RuntimeError(f"Cuda link error: {error_log.decode()}")
+        module = check_cuda_errors(driver.cuModuleLoadData(cubin_ptr))
+        check_cuda_errors(driver.cuLinkDestroy(link_state))
+        return module
 
 
 class CudaKernel:
@@ -168,7 +212,7 @@ class CudaKernel:
 
 class CudaKernelAndStreamManager:
     def __init__(self, cuda_compiler, cuda_context_manager):
-        self._cuda_compiler = cuda_compiler
+        self._cuda_compiler: CudaCompiler = cuda_compiler
         self._cuda_context_manager = cuda_context_manager
         self._streams = {}
         self._modules = {}
@@ -191,15 +235,12 @@ class CudaKernelAndStreamManager:
         stream = self.get_stream(device_id)
         stream.set_device()
         if self._modules.get(device_id, {}).get(cu_file_path) is None:
-            ptx = self._cuda_compiler.compile(
+            if self._modules.get(device_id) is None:
+                self._modules[device_id] = {}
+            self._modules[device_id][cu_file_path] = self._cuda_compiler.compile(
                 osp.join(osp.dirname(__file__), "../cuda_kernels", cu_file_path),
                 device_id,
                 source=source,
-            )
-            if self._modules.get(device_id) is None:
-                self._modules[device_id] = {}
-            self._modules[device_id][cu_file_path] = check_cuda_errors(
-                driver.cuModuleLoadData(ptx.ctypes.data)
             )
         module = self._modules[device_id][cu_file_path]
         kernel = check_cuda_errors(
