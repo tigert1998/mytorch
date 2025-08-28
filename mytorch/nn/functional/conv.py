@@ -79,7 +79,7 @@ def _im2col_input(input, weight, bias, stride=1, padding=0):
     return a_tensor
 
 
-def _reverse_im2col_input(a_tensor, input, weight, bias, stride=1, padding=0):
+def _col2im_input(a_tensor, input, weight, bias, stride=1, padding=0):
     stride = (stride, stride) if isinstance(stride, int) else stride
     padding = (padding, padding) if isinstance(padding, int) else padding
 
@@ -100,9 +100,9 @@ def _reverse_im2col_input(a_tensor, input, weight, bias, stride=1, padding=0):
             bias is None or input.dtype == bias.dtype
         )
         if input.dtype == np.float32:
-            func_name = "reverse_im2col_input_reference_fp32"
+            func_name = "col2im_input_reference_fp32"
         elif input.dtype == np.float16:
-            func_name = "reverse_im2col_input_reference_fp16"
+            func_name = "col2im_input_reference_fp16"
         else:
             raise InvalidDataTypeError(input.dtype)
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
@@ -208,7 +208,7 @@ def _im2col_weight(input, weight, bias, stride=1, padding=0):
     return b_tensor
 
 
-def _reverse_im2col_weight(b_tensor, input, weight, bias, stride=1, padding=0):
+def _col2im_weight(b_tensor, input, weight, bias, stride=1, padding=0):
     stride = (stride, stride) if isinstance(stride, int) else stride
     padding = (padding, padding) if isinstance(padding, int) else padding
 
@@ -221,9 +221,9 @@ def _reverse_im2col_weight(b_tensor, input, weight, bias, stride=1, padding=0):
     if input.device.type == "cuda":
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         if input.dtype == np.float32:
-            func_name = "reverse_im2col_weight_reference_fp32"
+            func_name = "col2im_weight_reference_fp32"
         elif input.dtype == np.float16:
-            func_name = "reverse_im2col_weight_reference_fp16"
+            func_name = "col2im_weight_reference_fp16"
         else:
             raise InvalidDataTypeError(input.dtype)
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
@@ -324,10 +324,8 @@ def conv2d_backward(output_grad, input, weight, bias=None, stride=1, padding=0):
         # [1, bhw, C_out]
         a_tensor_grad = _cuda_bmm(c_tensor, b_tensor, False, False, False)
         b_tensor_grad = _cuda_bmm(c_tensor, a_tensor, True, False, False)
-        input_grad = _reverse_im2col_input(
-            a_tensor_grad, input, weight, bias, stride, padding
-        )
-        weight_grad, bias_grad = _reverse_im2col_weight(
+        input_grad = _col2im_input(a_tensor_grad, input, weight, bias, stride, padding)
+        weight_grad, bias_grad = _col2im_weight(
             b_tensor_grad, input, weight, bias, stride, padding
         )
 
