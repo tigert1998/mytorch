@@ -83,15 +83,6 @@ def _col2im_input(a_tensor, input, weight, bias, stride=1, padding=0):
     stride = (stride, stride) if isinstance(stride, int) else stride
     padding = (padding, padding) if isinstance(padding, int) else padding
 
-    output_shape = [
-        input.shape[0],
-        weight.shape[0],
-        *[
-            (input.shape[2 + i] + padding[i] * 2 - weight.shape[2 + i]) // stride[i] + 1
-            for i in range(2)
-        ],
-    ]
-
     input_grad = Tensor(shape=input.shape, device=input.device, dtype=input.dtype)
 
     if input.device.type == "cuda":

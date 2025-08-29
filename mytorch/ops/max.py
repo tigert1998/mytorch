@@ -12,15 +12,15 @@ from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
 
 
-def max(tensor, reduce_axis=None, keepdim=False):
-    assert reduce_axis is None or isinstance(reduce_axis, int)
-    if reduce_axis is None:
+def max(tensor, dim=None, keepdim=False):
+    assert dim is None or isinstance(dim, int)
+    if dim is None:
         return_indices = False
-        reduce_axis = tuple(range(len(tensor.shape)))
+        dim = tuple(range(len(tensor.shape)))
     else:
         return_indices = True
-        reduce_axis = (reduce_axis,)
-    output_shape = _calculate_reduce_shape(tensor.shape, reduce_axis, keepdim)
+        dim = (dim,)
+    output_shape = _calculate_reduce_shape(tensor.shape, dim, keepdim)
 
     requires_grad = tensor.requires_grad
 
@@ -50,12 +50,10 @@ def max(tensor, reduce_axis=None, keepdim=False):
         )
 
         tensor_shape_num_bytes = len(tensor.shape) * np.dtype(np.int32).itemsize
-        reduce_axis_num_bytes = len(reduce_axis) * np.dtype(np.int32).itemsize
+        reduce_axis_num_bytes = len(dim) * np.dtype(np.int32).itemsize
         if tensor_shape_num_bytes + reduce_axis_num_bytes > 0:
             cuda_mem = CudaMemory(tensor_shape_num_bytes + reduce_axis_num_bytes)
-            cuda_mem.write(
-                np.array(list(tensor.shape) + list(reduce_axis), dtype=np.int32)
-            )
+            cuda_mem.write(np.array(list(tensor.shape) + list(dim), dtype=np.int32))
             tensor_shape_ptr = int(cuda_mem.ptr)
             reduce_axis_ptr = tensor_shape_ptr + tensor_shape_num_bytes
         else:
@@ -74,7 +72,7 @@ def max(tensor, reduce_axis=None, keepdim=False):
                 tensor,
                 np.array(len(tensor.shape), np.int32),
                 np.array(tensor_shape_ptr, np.uint64),
-                np.array(len(reduce_axis), np.int32),
+                np.array(len(dim), np.int32),
                 np.array(reduce_axis_ptr, np.uint64),
                 indices_tensor,
                 output_tensor,
@@ -90,7 +88,7 @@ def max(tensor, reduce_axis=None, keepdim=False):
 
     if requires_grad:
         DAGTracker.instance().add_node(
-            "max", [tensor, reduce_axis, keepdim], [output_tensor], [indices_tensor]
+            "max", [tensor, dim, keepdim], [output_tensor], [indices_tensor]
         )
 
     if return_indices:
@@ -100,7 +98,7 @@ def max(tensor, reduce_axis=None, keepdim=False):
 
 
 @DAGTracker.instance().register_backward_function("max")
-def max_backward(output_grad, indices_tensor, tensor, reduce_axis, keepdim):
+def max_backward(output_grad, indices_tensor, tensor, dim, keepdim):
     input_grad = Tensor(dtype=tensor.dtype, shape=tensor.shape, device=tensor.device)
 
     if tensor.device.type == "cuda":
@@ -116,12 +114,10 @@ def max_backward(output_grad, indices_tensor, tensor, reduce_axis, keepdim):
         )
 
         tensor_shape_num_bytes = len(tensor.shape) * np.dtype(np.int32).itemsize
-        reduce_axis_num_bytes = len(reduce_axis) * np.dtype(np.int32).itemsize
+        reduce_axis_num_bytes = len(dim) * np.dtype(np.int32).itemsize
         if tensor_shape_num_bytes + reduce_axis_num_bytes > 0:
             cuda_mem = CudaMemory(tensor_shape_num_bytes + reduce_axis_num_bytes)
-            cuda_mem.write(
-                np.array(list(tensor.shape) + list(reduce_axis), dtype=np.int32)
-            )
+            cuda_mem.write(np.array(list(tensor.shape) + list(dim), dtype=np.int32))
             tensor_shape_ptr = int(cuda_mem.ptr)
             reduce_axis_ptr = tensor_shape_ptr + tensor_shape_num_bytes
         else:
@@ -137,7 +133,7 @@ def max_backward(output_grad, indices_tensor, tensor, reduce_axis, keepdim):
                 tensor,
                 np.array(len(tensor.shape), np.int32),
                 np.array(tensor_shape_ptr, np.uint64),
-                np.array(len(reduce_axis), np.int32),
+                np.array(len(dim), np.int32),
                 np.array(reduce_axis_ptr, np.uint64),
                 indices_tensor,
                 input_grad,

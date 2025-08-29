@@ -46,8 +46,8 @@ class MeanForward {
 
   __device__ void WriteBuffer(int warp_id) { buffer[warp_id] = value; }
 
-  __device__ void ReadBuffer(int lane_id) {
-    value = lane_id * warpSize < inner() ? buffer[lane_id] : (T)0;
+  __device__ void ReadBuffer(bool is_valid, int lane_id) {
+    value = is_valid ? buffer[lane_id] : (T)0;
   }
 
   __device__ void WriteAnswer(int o) { output[o] = value; }
@@ -97,8 +97,8 @@ class VarForward {
 
   __device__ void WriteBuffer(int warp_id) { buffer[warp_id] = value; }
 
-  __device__ void ReadBuffer(int lane_id) {
-    value = lane_id * warpSize < inner() ? buffer[lane_id] : (T)0;
+  __device__ void ReadBuffer(bool is_valid, int lane_id) {
+    value = is_valid ? buffer[lane_id] : (T)0;
   }
 
   __device__ void WriteAnswer(int o) { output[o] = value; }
@@ -259,8 +259,8 @@ class VarBackward {
 
   __device__ void WriteBuffer(int warp_id) { buffer[warp_id] = value; }
 
-  __device__ void ReadBuffer(int lane_id) {
-    value = lane_id * warpSize < inner() ? buffer[lane_id] : (T)0;
+  __device__ void ReadBuffer(bool is_valid, int lane_id) {
+    value = is_valid ? buffer[lane_id] : (T)0;
   }
 
   __device__ void WriteAnswer(int o) { mean_grad[o] += value; }
@@ -347,11 +347,11 @@ class BatchNormBackward {
     v_buffer[warp_id] = vg;
   }
 
-  __device__ void ReadBuffer(int lane_id) {
-    wg = lane_id * warpSize < inner() ? w_buffer[lane_id] : (T)0;
-    bg = lane_id * warpSize < inner() ? b_buffer[lane_id] : (T)0;
-    mg = lane_id * warpSize < inner() ? m_buffer[lane_id] : (T)0;
-    vg = lane_id * warpSize < inner() ? v_buffer[lane_id] : (T)0;
+  __device__ void ReadBuffer(bool is_valid, int lane_id) {
+    wg = is_valid ? w_buffer[lane_id] : (T)0;
+    bg = is_valid ? b_buffer[lane_id] : (T)0;
+    mg = is_valid ? m_buffer[lane_id] : (T)0;
+    vg = is_valid ? v_buffer[lane_id] : (T)0;
   }
 
   __device__ void WriteAnswer(int o) {

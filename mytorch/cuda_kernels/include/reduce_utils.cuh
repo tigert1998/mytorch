@@ -45,7 +45,8 @@ __global__ void ReduceTemplate(Args... args) {
     }
     __syncthreads();
     if (warp_id == 0) {
-      adapter.ReadBuffer(lane_id);
+      bool is_valid = lane_id * warpSize < inner_size;
+      adapter.ReadBuffer(is_valid, lane_id);
 #pragma unroll
       for (int offset = warpSize / 2; offset > 0; offset >>= 1) {
         adapter.Aggregate(offset);

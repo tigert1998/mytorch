@@ -70,9 +70,9 @@ class MaxForward {
     indices_buffer[warp_id] = index;
   }
 
-  __device__ void ReadBuffer(int lane_id) {
-    value = lane_id * warpSize < inner() ? value_buffer[lane_id] : -inf;
-    index = lane_id * warpSize < inner() ? indices_buffer[lane_id] : 0;
+  __device__ void ReadBuffer(bool is_valid, int lane_id) {
+    value = is_valid ? value_buffer[lane_id] : -inf;
+    index = is_valid ? indices_buffer[lane_id] : 0;
   }
 
   __device__ void WriteAnswer(int o) {
