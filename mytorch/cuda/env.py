@@ -2,7 +2,7 @@ import os
 import numpy as np
 import os.path as osp
 
-from cuda.bindings import driver, nvrtc
+from cuda.bindings import driver, nvrtc, runtime
 
 
 def _cuda_get_error_enum(error):
@@ -65,6 +65,25 @@ class CudaStream:
 
     def destroy(self):
         check_cuda_errors(driver.cuStreamDestroy(self.stream))
+
+
+class CudaTimer:
+    def __init__(self, stream: CudaStream):
+        self.stream = stream
+        self._start = check_cuda_errors(runtime.cudaEventCreate())
+        self._end = check_cuda_errors(runtime.cudaEventCreate())
+
+    def start(self):
+        check_cuda_errors(runtime.cudaEventRecord(self._start, self.stream.stream))
+
+    def end(self) -> float:
+        check_cuda_errors(runtime.cudaEventRecord(self._end, self.stream.stream))
+        check_cuda_errors(runtime.cudaEventSynchronize(self._end))
+        return check_cuda_errors(runtime.cudaEventElapsedTime(self._start, self._end))
+
+    def __del__(self):
+        check_cuda_errors(runtime.cudaEventDestroy(self._start))
+        check_cuda_errors(runtime.cudaEventDestroy(self._end))
 
 
 class CudaCompiler:
@@ -194,10 +213,13 @@ class CudaKernel:
                 assert False, error_msg
         return np_args
 
-    def run(self, grid_dim, block_dim, args, num_shared_bytes=0):
+    def run(self, grid_dim, block_dim, args, num_shared_bytes=0, timer: bool = False):
         self.stream.set_device()
         args = self._prepare_args(args)
         ptr_array = np.array([i.ctypes.data for i in args], dtype=np.uint64)
+        if timer:
+            cuda_timer = CudaTimer(self.stream)
+            cuda_timer.start()
         check_cuda_errors(
             driver.cuLaunchKernel(
                 self.kernel,
@@ -209,6 +231,8 @@ class CudaKernel:
                 0,
             )
         )
+        if timer:
+            return cuda_timer.end()
 
 
 class CudaKernelAndStreamManager:
