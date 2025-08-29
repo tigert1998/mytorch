@@ -206,6 +206,7 @@ def bmm_backward(output_grad, x, y):
 
 
 def permute(x, permute_array):
+    assert len(permute_array) == len(x.shape)
     permute_array = [(i + len(permute_array) if i < 0 else i) for i in permute_array]
 
     requires_grad = x.requires_grad
