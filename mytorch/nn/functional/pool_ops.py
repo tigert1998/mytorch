@@ -44,8 +44,8 @@ def pool_operation_forward(name):
                 "pool_ops.cu", func_name, x.device.index
             )
             cuda_kernel.run(
-                (output_shape[0] * output_shape[1], output_shape[2], output_shape[3]),
-                (1, 1, 1),
+                (1, 4, 4),
+                (32, 4, 4),
                 [
                     np.array(x.shape[0]),
                     np.array(x.shape[1]),
@@ -70,7 +70,7 @@ def pool_operation_forward(name):
 
         if requires_grad:
             DAGTracker.instance().add_node(
-                name, [x, kernel_size, stride, padding], [tensor]
+                name, [x, kernel_size, stride, padding], [tensor], [tensor]
             )
 
         return tensor
@@ -80,7 +80,7 @@ def pool_operation_forward(name):
 
 def pool_operation_backward(name):
     @DAGTracker.instance().register_backward_function(name)
-    def backward(output_grad, input, kernel_size, stride, padding):
+    def backward(output_grad, output, input, kernel_size, stride, padding):
         kernel_size = (
             (kernel_size, kernel_size) if isinstance(kernel_size, int) else kernel_size
         )
@@ -113,8 +113,8 @@ def pool_operation_backward(name):
             )
             input_grad.fill_(0)
             cuda_kernel.run(
-                (output_shape[0] * output_shape[1], output_shape[2], output_shape[3]),
-                (1, 1, 1),
+                (1, 4, 4),
+                (32, 4, 4),
                 [
                     np.array(input.shape[0]),
                     np.array(input.shape[1]),
@@ -127,6 +127,7 @@ def pool_operation_backward(name):
                     np.array(padding[0]),
                     np.array(padding[1]),
                     input,
+                    output,
                     input_grad,
                     output_grad,
                 ],

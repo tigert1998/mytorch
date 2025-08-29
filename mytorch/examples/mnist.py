@@ -58,7 +58,7 @@ if __name__ == "__main__":
     model.to("cuda:0")
     optimizer = SGD(model.parameters(), lr=1e-1)
 
-    for epoch in range(3):
+    for epoch in range(1):
         model.train()
         for i, (x, y) in enumerate(train_data_loader):
             input_tensor = x.to("cuda:0")
