@@ -70,7 +70,7 @@ if __name__ == "__main__":
             if (i + 1) % 16 == 0:
                 loss = loss.item()
                 accuracy = (
-                    logits.max(dim=(1,))[1].eq(target).to(dtype=np.float32).mean()
+                    logits.max(dim=1)[1].eq(target).to(dtype=np.float32).mean()
                 ).item()
                 print(
                     f"Epoch #{epoch}, step #{i}, accuracy: {accuracy* 100:0.2f}%, loss: {loss:0.4f}"
@@ -84,8 +84,6 @@ if __name__ == "__main__":
             target = y.to("cuda:0", np.int64)
             with no_grad():
                 logits = model(input_tensor)
-            correct += (
-                logits.max(dim=(1,))[1].eq(target).to(dtype=np.float32).sum().item()
-            )
+            correct += logits.max(dim=1)[1].eq(target).to(dtype=np.float32).sum().item()
         accuracy = correct / len(test_dataset)
         print(f"Epoch #{epoch}, test accuracy: {accuracy *100:0.2f}%")

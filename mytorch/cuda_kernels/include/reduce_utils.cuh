@@ -27,9 +27,12 @@ __global__ void ReduceTemplate(Args... args) {
   extern __shared__ char shared[];
   Adapter adapter(shared, args...);
 
-  for (int x = blockIdx.y; x < adapter.outer(); x += gridDim.y) {
+  int outer_size = adapter.outer();
+  int inner_size = adapter.inner();
+
+  for (int x = blockIdx.y; x < outer_size; x += gridDim.y) {
     adapter.InitOuter();
-    for (int i = warp_id * warpSize + lane_id; i < adapter.inner();
+    for (int i = warp_id * warpSize + lane_id; i < inner_size;
          i += num_warps * warpSize) {
       adapter.LoopInner(x, i);
     }

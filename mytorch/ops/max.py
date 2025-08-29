@@ -13,9 +13,13 @@ from mytorch.autograd import DAGTracker
 
 
 def max(tensor, reduce_axis=None, keepdim=False):
+    assert reduce_axis is None or isinstance(reduce_axis, int)
     if reduce_axis is None:
+        return_indices = False
         reduce_axis = tuple(range(len(tensor.shape)))
-    reduce_axis = tuple(sorted(reduce_axis))
+    else:
+        return_indices = True
+        reduce_axis = (reduce_axis,)
     output_shape = _calculate_reduce_shape(tensor.shape, reduce_axis, keepdim)
 
     requires_grad = tensor.requires_grad
@@ -89,7 +93,10 @@ def max(tensor, reduce_axis=None, keepdim=False):
             "max", [tensor, reduce_axis, keepdim], [output_tensor], [indices_tensor]
         )
 
-    return output_tensor, indices_tensor
+    if return_indices:
+        return output_tensor, indices_tensor
+    else:
+        return output_tensor
 
 
 @DAGTracker.instance().register_backward_function("max")
