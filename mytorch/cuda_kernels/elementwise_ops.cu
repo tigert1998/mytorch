@@ -2,6 +2,8 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
+#include <cuda/std/cstdint>
+
 #define ELEMENTWISE_OPERATION_FORWARD(name, arg_type, arg, op)                 \
   template <typename T>                                                        \
   __global__ void name##_reference(int n, T* input, arg_type(T) T* output) {   \
@@ -57,7 +59,7 @@
 #define FILL() input[xid] = alpha
 ELEMENTWISE_OPERATION_FORWARD(fill, ALPHA_ARG_TYPE, ALPHA_ARG, FILL)
 
-#define NORMAL_ARG_TYPE(T) unsigned long long seed, T mean, T stddev,
+#define NORMAL_ARG_TYPE(T) uint64_t seed, T mean, T stddev,
 #define NORMAL_ARG() seed, mean, stddev,
 #define NORMAL()                                           \
   do {                                                     \
@@ -67,7 +69,7 @@ ELEMENTWISE_OPERATION_FORWARD(fill, ALPHA_ARG_TYPE, ALPHA_ARG, FILL)
   } while (0)
 ELEMENTWISE_OPERATION_FORWARD(normal, NORMAL_ARG_TYPE, NORMAL_ARG, NORMAL)
 
-#define UNIFORM_ARG_TYPE(T) unsigned long long seed, T a, T b,
+#define UNIFORM_ARG_TYPE(T) uint64_t seed, T a, T b,
 #define UNIFORM_ARG() seed, a, b,
 #define UNIFORM()                                         \
   do {                                                    \

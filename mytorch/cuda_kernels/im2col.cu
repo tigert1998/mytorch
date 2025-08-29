@@ -160,9 +160,11 @@ __global__ void col2im_input_reference(int batch_size, int input_h, int input_w,
                         input_y >= input_w;
 
       if (!is_padding) {
-        input[((batch_idx * in_channels + channels_idx) * input_h + input_x) *
-                  input_w +
-              input_y] += x[i * x_cols_padded + j];
+        atomicAdd(&input[((batch_idx * in_channels + channels_idx) * input_h +
+                          input_x) *
+                             input_w +
+                         input_y],
+                  x[i * x_cols_padded + j]);
       }
     }
 }
