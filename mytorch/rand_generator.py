@@ -2,16 +2,16 @@ import random
 
 
 def manual_seed(meta_seed):
-    Generator.instance().reset(meta_seed)
+    RandGenerator.instance().reset(meta_seed)
 
 
-class Generator:
+class RandGenerator:
     _instance = None
 
     @classmethod
     def instance(cls):
         if cls._instance is None:
-            cls._instance = Generator()
+            cls._instance = RandGenerator()
         return cls._instance
 
     def __init__(self):

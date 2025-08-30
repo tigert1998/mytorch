@@ -1,6 +1,7 @@
 from typing import Optional, Self, Dict, Set
 
 from mytorch.nn.parameter import Parameter, Tensor
+from mytorch.logger_manager import LoggerManager
 
 
 class Module:
@@ -136,6 +137,67 @@ class Module:
             if module is not None and module not in memo:
                 memo.add(module)
                 yield name, module
+
+    def _save_to_state_dict(self, destination, prefix, keep_vars):
+        for name, param in self._parameters.items():
+            destination[prefix + name] = param if keep_vars else param.detach()
+        for name, buf in self._buffers.items():
+            destination[prefix + name] = buf if keep_vars else buf.detach()
+
+    def state_dict(self, destination=None, prefix="", keep_vars=False):
+        if destination is None:
+            destination = {}
+        self._save_to_state_dict(destination, prefix, keep_vars)
+        for name, module in self._modules.items():
+            module.state_dict(
+                destination=destination,
+                prefix=prefix + name + ".",
+                keep_vars=keep_vars,
+            )
+        return destination
+
+    def load_state_dict(self, state_dict):
+        missing_keys = []
+        unexpected_keys = []
+
+        unexpected_keys_memo = set(state_dict.keys())
+
+        def load_recursively(module: Module, local_state_dict, prefix=""):
+            missing_keys_memo = set()
+            for k, _ in module.named_buffers(prefix=prefix, recurse=False):
+                missing_keys_memo.add(k)
+            for k, _ in module.named_parameters(prefix=prefix, recurse=False):
+                missing_keys_memo.add(k)
+            for k, v in local_state_dict.items():
+                name = k if prefix == "" else k[len(prefix) + 1 :]
+                tensor: Tensor = getattr(module, name, None)
+                if tensor is not None:
+                    tensor.copy_(v)
+                    missing_keys_memo.remove(k)
+                    unexpected_keys_memo.remove(k)
+            missing_keys.extend(list(missing_keys_memo))
+
+            for name, child in module._modules.items():
+                child_prefix = ("" if prefix == "" else f"{prefix}.") + name
+                child_state_dict = {
+                    k: v
+                    for k, v in local_state_dict.items()
+                    if k.startswith(child_prefix)
+                }
+                load_recursively(child, child_state_dict, child_prefix)
+
+        load_recursively(self, state_dict)
+
+        unexpected_keys = list(unexpected_keys_memo)
+
+        if len(missing_keys) > 0:
+            LoggerManager.instance().logger.warning(
+                f"Missing keys in module: {missing_keys}"
+            )
+        if len(unexpected_keys) > 0:
+            LoggerManager.instance().logger.warning(
+                f"Unexpected keys in state_dict: {unexpected_keys}"
+            )
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError()
