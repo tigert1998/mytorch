@@ -160,34 +160,36 @@ class Module:
         missing_keys = []
         unexpected_keys = []
 
+        unexpected_keys_memo = set(state_dict.keys())
+
         def load_recursively(module: Module, local_state_dict, prefix=""):
-            memo = set()
+            missing_keys_memo = set()
             for k, _ in module.named_buffers(prefix=prefix, recurse=False):
-                memo.add(k)
+                missing_keys_memo.add(k)
             for k, _ in module.named_parameters(prefix=prefix, recurse=False):
-                memo.add(k)
+                missing_keys_memo.add(k)
             for k, v in local_state_dict.items():
                 name = k if prefix == "" else k[len(prefix) + 1 :]
-                if "." not in name:
-                    tensor: Tensor = getattr(module, name, None)
-                    if tensor is None:
-                        unexpected_keys.append(k)
-                    else:
-                        tensor.copy_(v)
-                        memo.remove(k)
-            missing_keys.extend(list(memo))
+                tensor: Tensor = getattr(module, name, None)
+                if tensor is not None:
+                    tensor.copy_(v)
+                    missing_keys_memo.remove(k)
+                    unexpected_keys_memo.remove(k)
+            missing_keys.extend(list(missing_keys_memo))
 
             for name, child in module._modules.items():
-                if child is not None:
-                    child_prefix = ("" if prefix == "" else f"{prefix}.") + name
-                    child_state_dict = {
-                        k: v
-                        for k, v in local_state_dict.items()
-                        if k.startswith(child_prefix)
-                    }
-                    load_recursively(child, child_state_dict, child_prefix)
+                child_prefix = ("" if prefix == "" else f"{prefix}.") + name
+                child_state_dict = {
+                    k: v
+                    for k, v in local_state_dict.items()
+                    if k.startswith(child_prefix)
+                }
+                load_recursively(child, child_state_dict, child_prefix)
 
         load_recursively(self, state_dict)
+
+        unexpected_keys = list(unexpected_keys_memo)
+
         if len(missing_keys) > 0:
             LoggerManager.instance().logger.warning(
                 f"Missing keys in module: {missing_keys}"
