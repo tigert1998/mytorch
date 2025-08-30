@@ -11,7 +11,7 @@ def _config_logger(filename):
         handler = logging.FileHandler(filename)
     handler.setLevel(logging.INFO)
     formatter = logging.Formatter(
-        "[%(asctime)s] [%(filename)s:%(lineno)s] [%(levelname)s] %(message)s"
+        "[%(asctime)s] [%(pathname)s:%(lineno)s] [%(levelname)s] %(message)s"
     )
     handler.setFormatter(formatter)
     root.handlers = [handler]
