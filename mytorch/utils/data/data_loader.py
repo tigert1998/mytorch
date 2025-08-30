@@ -3,7 +3,7 @@ import numbers
 
 from mytorch.utils.data.dataset import Dataset
 from mytorch.tensor import Tensor
-from mytorch.rand_generator import Generator
+from mytorch.rand_generator import RandGenerator
 from mytorch.ops.cat import cat
 
 
@@ -16,7 +16,7 @@ class DataLoader:
     def __iter__(self):
         indices = list(range(len(self.dataset)))
         if self.shuffle:
-            np.random.seed(Generator.instance().generate())
+            np.random.seed(RandGenerator.instance().generate())
             np.random.shuffle(indices)
         for index in range(0, len(indices), self.batch_size):
             samples = [

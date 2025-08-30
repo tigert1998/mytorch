@@ -317,15 +317,15 @@ class Tensor:
 
     def normal_(self, mean, std):
         from mytorch.ops.elementwise_ops import _normal
-        from mytorch.rand_generator import Generator
+        from mytorch.rand_generator import RandGenerator
 
-        _normal(self, Generator.instance().generate(), mean, std)
+        _normal(self, RandGenerator.instance().generate(), mean, std)
 
     def uniform_(self, a, b):
         from mytorch.ops.elementwise_ops import _uniform
-        from mytorch.rand_generator import Generator
+        from mytorch.rand_generator import RandGenerator
 
-        _uniform(self, Generator.instance().generate(), a, b)
+        _uniform(self, RandGenerator.instance().generate(), a, b)
 
     def item(self):
         return self.to("cpu").cpu_array.item()
