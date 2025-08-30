@@ -348,6 +348,10 @@ class Tensor:
     def detach(self):
         return Tensor(tensor=self, requires_grad=False)
 
+    def numpy(self) -> np.ndarray:
+        assert not self.requires_grad and self.device.type == "cpu"
+        return self.cpu_array
+
     def backward(self):
         instance = DAGTracker.instance()
         instance.backward(self)

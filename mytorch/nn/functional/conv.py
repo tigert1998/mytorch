@@ -253,6 +253,10 @@ def _col2im_weight(b_tensor, input, weight, bias, stride=1, padding=0):
 
 
 def conv2d(input, weight, bias=None, stride=1, padding=0):
+    assert input.device == weight.device and (
+        bias is None or input.device == bias.device
+    )
+
     stride = (stride, stride) if isinstance(stride, int) else stride
     padding = (padding, padding) if isinstance(padding, int) else padding
 

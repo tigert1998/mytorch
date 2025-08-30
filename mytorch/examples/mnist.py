@@ -41,18 +41,17 @@ class CNN(nn.Module):
         return x
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser("Train MNIST with MyTorch")
-    parser.add_argument("--ckpt")
-    parser.add_argument("--save-ckpt")
-    args = parser.parse_args()
-
-    transforms = transforms.Compose(
+def get_transform():
+    return transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize(0.1307, 0.3081)]
     )
 
-    train_dataset = MNIST("./datasets", True, transform=transforms)
-    test_dataset = MNIST("./datasets", False, transform=transforms)
+
+def train_mnist(ckpt, save_ckpt):
+    transform = get_transform()
+
+    train_dataset = MNIST("./datasets", True, transform=transform)
+    test_dataset = MNIST("./datasets", False, transform=transform)
     train_data_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
     test_data_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
@@ -61,8 +60,8 @@ if __name__ == "__main__":
     optimizer = optim.SGD(model.parameters(), lr=1e-1)
 
     last_epoch = -1
-    if args.ckpt is not None:
-        ckpt = mytorch.load(args.ckpt, map_location="cuda:0")
+    if ckpt is not None:
+        ckpt = mytorch.load(ckpt, map_location="cuda:0")
         optimizer.load_state_dict(ckpt["optimizer"])
         model.load_state_dict(ckpt["model"])
         last_epoch = ckpt["epoch"]
@@ -99,7 +98,7 @@ if __name__ == "__main__":
         accuracy = correct / len(test_dataset)
         print(f"Epoch #{epoch}, test accuracy: {accuracy *100:0.2f}%")
 
-        if args.save_ckpt:
+        if save_ckpt:
             mytorch.save(
                 {
                     "optimizer": optimizer.state_dict(),
@@ -107,5 +106,55 @@ if __name__ == "__main__":
                     "accuracy": accuracy,
                     "epoch": epoch,
                 },
-                args.save_ckpt,
+                save_ckpt,
             )
+
+
+def eval_test_set(ckpt, image_ids):
+    import matplotlib.pyplot as plt
+
+    transform = get_transform()
+    test_dataset = MNIST("./datasets", False)
+    model = CNN()
+    model.to("cuda:0")
+    ckpt = mytorch.load(ckpt, map_location="cuda:0")
+    model.load_state_dict(ckpt["model"])
+
+    model.eval()
+    for i in image_ids:
+        tensor = transform(test_dataset[i][0]).to("cuda:0")
+        tensor = tensor.reshape((1, *tensor.shape))
+        with mytorch.no_grad():
+            output_tensor = model(tensor)
+        logits = output_tensor.to("cpu").detach().numpy()[0]
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+        fig.suptitle(f"MNIST Test Set Image #{i}", fontsize=16)
+        ax1.imshow(test_dataset[i][0].convert("RGB"))
+        names = [f"{i}" for i in range(10)]
+        ax2.bar(names, logits)
+        ax2.set_xlabel("Number", fontsize=12)
+        ax2.set_ylabel("Logit Value", fontsize=12)
+        plt.show()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser("Train MNIST with MyTorch")
+    parser.add_argument(
+        "--eval",
+        type=int,
+        nargs="+",
+        help="The test MNIST set image ids to evaluate. The ckpt argument must be passed as well. If not passed, the program will start training.",
+    )
+    parser.add_argument(
+        "--ckpt", help="The initial model checkpoint to load for evaluation/training."
+    )
+    parser.add_argument(
+        "--save-ckpt", help="The checkpoint path to save after training."
+    )
+    args = parser.parse_args()
+
+    if args.eval is not None:
+        eval_test_set(args.ckpt, list(args.eval))
+    else:
+        train_mnist(args.ckpt, args.save_ckpt)
