@@ -1,4 +1,5 @@
 import numpy as np
+import argparse
 
 import mytorch
 import mytorch.nn as nn
@@ -41,6 +42,11 @@ class CNN(nn.Module):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser("Train MNIST with MyTorch")
+    parser.add_argument("--ckpt")
+    parser.add_argument("--save-ckpt")
+    args = parser.parse_args()
+
     transforms = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize(0.1307, 0.3081)]
     )
@@ -54,7 +60,16 @@ if __name__ == "__main__":
     model.to("cuda:0")
     optimizer = optim.SGD(model.parameters(), lr=1e-1)
 
-    for epoch in range(1):
+    last_epoch = -1
+    if args.ckpt is not None:
+        ckpt = mytorch.load(args.ckpt, map_location="cuda:0")
+        optimizer.load_state_dict(ckpt["optimizer"])
+        model.load_state_dict(ckpt["model"])
+        last_epoch = ckpt["epoch"]
+        accuracy = ckpt["accuracy"] * 100
+        print(f"Accuracy: {accuracy:.2f}%")
+
+    for epoch in range(last_epoch + 1, last_epoch + 2):
         model.train()
         for i, (x, y) in enumerate(train_data_loader):
             input_tensor = x.to("cuda:0")
@@ -83,3 +98,14 @@ if __name__ == "__main__":
             correct += logits.max(dim=1)[1].eq(target).to(dtype=np.float32).sum().item()
         accuracy = correct / len(test_dataset)
         print(f"Epoch #{epoch}, test accuracy: {accuracy *100:0.2f}%")
+
+        if args.save_ckpt:
+            mytorch.save(
+                {
+                    "optimizer": optimizer.state_dict(),
+                    "model": model.state_dict(),
+                    "accuracy": accuracy,
+                    "epoch": epoch,
+                },
+                args.save_ckpt,
+            )
