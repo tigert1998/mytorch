@@ -345,6 +345,9 @@ class Tensor:
 
         return func(self, self._cast_other_to_tensor(other))
 
+    def detach(self):
+        return Tensor(tensor=self, requires_grad=False)
+
     def backward(self):
         instance = DAGTracker.instance()
         instance.backward(self)

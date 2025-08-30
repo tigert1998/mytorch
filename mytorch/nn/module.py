@@ -137,6 +137,27 @@ class Module:
                 memo.add(module)
                 yield name, module
 
+    def _save_to_state_dict(self, destination, prefix, keep_vars):
+        for name, param in self._parameters.items():
+            if param is not None:
+                destination[prefix + name] = param if keep_vars else param.detach()
+        for name, buf in self._buffers.items():
+            if buf is not None:
+                destination[prefix + name] = buf if keep_vars else buf.detach()
+
+    def state_dict(self, destination=None, prefix="", keep_vars=False):
+        if destination is None:
+            destination = {}
+        self._save_to_state_dict(destination, prefix, keep_vars)
+        for name, module in self._modules.items():
+            if module is not None:
+                module.state_dict(
+                    destination=destination,
+                    prefix=prefix + name + ".",
+                    keep_vars=keep_vars,
+                )
+        return destination
+
     def forward(self, *args, **kwargs):
         raise NotImplementedError()
 
