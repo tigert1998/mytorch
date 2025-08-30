@@ -2,9 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from mytorch.nn.linear import Linear
-from mytorch.optim.sgd import SGD
-from mytorch.tensor import Tensor
+import mytorch.nn as nn
+import mytorch.optim as optim
+import mytorch
 
 
 def make_data(batch_size):
@@ -17,12 +17,14 @@ def make_data(batch_size):
 
 
 def linear_regression(x, y, device):
-    linear = Linear(1, 1, bias=True, device=device)
-    optimizer = SGD(linear.parameters(), lr=1e-2)
-    input_tensor = Tensor(
+    linear = nn.Linear(1, 1, bias=True, device=device)
+    optimizer = optim.SGD(linear.parameters(), lr=1e-2)
+    input_tensor = mytorch.Tensor(
         cpu_array=x.astype(np.float32).reshape((-1, 1)), device=device
     )
-    ans = Tensor(cpu_array=y.astype(np.float32).reshape((len(x), 1)), device=device)
+    ans = mytorch.Tensor(
+        cpu_array=y.astype(np.float32).reshape((len(x), 1)), device=device
+    )
 
     for i in tqdm(range(500)):
         optimizer.zero_grad()

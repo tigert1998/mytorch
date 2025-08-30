@@ -205,9 +205,9 @@ def bmm_backward(output_grad, x, y):
     return [x_grad, y_grad]
 
 
-def permute(x, permute_array):
-    assert len(permute_array) == len(x.shape)
-    permute_array = [(i + len(permute_array) if i < 0 else i) for i in permute_array]
+def permute(x, dims):
+    assert len(dims) == len(x.shape)
+    dims = [(i + len(dims) if i < 0 else i) for i in dims]
 
     requires_grad = x.requires_grad
 
@@ -225,18 +225,18 @@ def permute(x, permute_array):
         output_tensor = Tensor(
             dtype=x.dtype,
             device=x.device,
-            shape=tuple([x.shape[i] for i in permute_array]),
+            shape=tuple([x.shape[i] for i in dims]),
             requires_grad=requires_grad,
         )
 
-        num_bytes = np.dtype(np.int32).itemsize * len(permute_array)
+        num_bytes = np.dtype(np.int32).itemsize * len(dims)
         if num_bytes > 0:
             cuda_mem = CudaMemory(num_bytes * 2)
-            cuda_mem.write(np.array(list(x.shape) + permute_array, dtype=np.int32))
+            cuda_mem.write(np.array(list(x.shape) + dims, dtype=np.int32))
             shape_ptr = int(cuda_mem.ptr)
-            permute_array_ptr = shape_ptr + num_bytes
+            dims_ptr = shape_ptr + num_bytes
         else:
-            shape_ptr = permute_array_ptr = 0
+            shape_ptr = dims_ptr = 0
 
         num_elements = shape_size(x.shape)
         cuda_kernel.run(
@@ -246,15 +246,15 @@ def permute(x, permute_array):
                 np.array(num_elements, np.int32),
                 x,
                 output_tensor,
-                np.array(len(permute_array), np.int32),
+                np.array(len(dims), np.int32),
                 np.array(shape_ptr, dtype=np.uint64),
-                np.array(permute_array_ptr, dtype=np.uint64),
+                np.array(dims_ptr, dtype=np.uint64),
             ],
         )
 
     elif x.device.type == "cpu":
         output_tensor = Tensor(
-            cpu_array=np.transpose(x.cpu_array, permute_array),
+            cpu_array=np.transpose(x.cpu_array, dims),
             dtype=x.dtype,
             device=x.device,
             requires_grad=requires_grad,
@@ -264,14 +264,14 @@ def permute(x, permute_array):
         raise InvalidDeviceError(x.device.type)
 
     if requires_grad:
-        DAGTracker.instance().add_node("permute", [x, permute_array], [output_tensor])
+        DAGTracker.instance().add_node("permute", [x, dims], [output_tensor])
 
     return output_tensor
 
 
 @DAGTracker.instance().register_backward_function("permute")
-def permute_backward(output_grad, x, permute_array):
-    permute_array = [(i + len(permute_array) if i < 0 else i) for i in permute_array]
+def permute_backward(output_grad, x, dims):
+    dims = [(i + len(dims) if i < 0 else i) for i in dims]
 
     if x.device.type == "cuda":
         if x.dtype == np.float32:
@@ -290,14 +290,14 @@ def permute_backward(output_grad, x, permute_array):
             shape=x.shape,
         )
 
-        num_bytes = np.dtype(np.int32).itemsize * len(permute_array)
+        num_bytes = np.dtype(np.int32).itemsize * len(dims)
         if num_bytes > 0:
             cuda_mem = CudaMemory(num_bytes * 2)
-            cuda_mem.write(np.array(list(x.shape) + permute_array, dtype=np.int32))
+            cuda_mem.write(np.array(list(x.shape) + dims, dtype=np.int32))
             shape_ptr = int(cuda_mem.ptr)
-            permute_array_ptr = shape_ptr + num_bytes
+            dims_ptr = shape_ptr + num_bytes
         else:
-            shape_ptr = permute_array_ptr = 0
+            shape_ptr = dims_ptr = 0
 
         num_elements = shape_size(x.shape)
         cuda_kernel.run(
@@ -305,21 +305,21 @@ def permute_backward(output_grad, x, permute_array):
             (256, 1, 1),
             [
                 np.array(num_elements, dtype=np.int32),
-                np.array(len(permute_array), dtype=np.int32),
+                np.array(len(dims), dtype=np.int32),
                 np.array(shape_ptr, dtype=np.uint64),
-                np.array(permute_array_ptr, dtype=np.uint64),
+                np.array(dims_ptr, dtype=np.uint64),
                 input_grad,
                 output_grad,
             ],
         )
 
     elif x.device.type == "cpu":
-        reverse_permute_array = [None for _ in range(len(permute_array))]
+        reverse_dims = [None for _ in range(len(dims))]
         # [1, 2, 0] => [2, 0, 1]
-        for i, permute in enumerate(permute_array):
-            reverse_permute_array[permute] = i
+        for i, permute in enumerate(dims):
+            reverse_dims[permute] = i
         input_grad = Tensor(
-            cpu_array=np.transpose(output_grad.cpu_array, reverse_permute_array),
+            cpu_array=np.transpose(output_grad.cpu_array, reverse_dims),
             dtype=x.dtype,
             device=x.device,
             shape=x.shape,

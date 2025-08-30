@@ -330,10 +330,10 @@ class Tensor:
     def item(self):
         return self.to("cpu").cpu_array.item()
 
-    def permute(self, permute_array):
+    def permute(self, dims):
         from mytorch.ops.basic_ops import permute as func
 
-        return func(self, permute_array)
+        return func(self, dims)
 
     def max(self, dim=None, keepdim=False):
         from mytorch.ops.max import max as func

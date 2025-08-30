@@ -23,7 +23,7 @@ def _download_single_file(filename: str, folder: str):
         f.write(g_file.read())
 
 
-class MNISTDataset(Dataset):
+class MNIST(Dataset):
     FILENAMES = {
         "train_x": "train-images-idx3-ubyte.gz",
         "train_y": "train-labels-idx1-ubyte.gz",
@@ -37,7 +37,7 @@ class MNISTDataset(Dataset):
         super().__init__()
         self.root = root
         self.train = train
-        os.makedirs(osp.join(self.root, "MNIST"), exist_ok=True)
+        os.makedirs(osp.join(self.root, "MNIST/raw"), exist_ok=True)
         if download:
             self._download_and_save_npy()
         self._load_npy()
@@ -50,7 +50,7 @@ class MNISTDataset(Dataset):
         self.y = np.load(osp.join(self.root, "MNIST", f"{prefix}_y.npy"))
 
     def _download_and_save_npy(self):
-        folder = osp.join(self.root, "MNIST")
+        folder = osp.join(self.root, "MNIST/raw")
         for filename in self.FILENAMES.values():
             _download_single_file(filename, folder)
         for train in [False, True]:
@@ -62,8 +62,11 @@ class MNISTDataset(Dataset):
             for i in tqdm(range(size)):
                 imgs.append(self._get_img(x_buf, i).reshape((1, 28, 28)))
                 labels.append(self._get_label(y_buf, i))
-            np.save(osp.join(folder, f"{prefix}_x.npy"), np.concatenate(imgs, axis=0))
-            np.save(osp.join(folder, f"{prefix}_y.npy"), np.array(labels))
+            np.save(
+                osp.join(self.root, "MNIST", f"{prefix}_x.npy"),
+                np.concatenate(imgs, axis=0),
+            )
+            np.save(osp.join(self.root, "MNIST", f"{prefix}_y.npy"), np.array(labels))
 
     @classmethod
     def _read_bytes(cls, folder, train):
