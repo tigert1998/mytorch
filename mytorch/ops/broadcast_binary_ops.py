@@ -4,6 +4,7 @@ from typing import Tuple, List
 from mytorch.tensor import (
     InvalidDataTypeError,
     InvalidDeviceError,
+    MismatchDevicesError,
     Tensor,
     shape_size,
     CudaMemory,
@@ -30,7 +31,8 @@ def broadcast_binary_opeartion_forward(
     def forward(x, y, *args):
         from mytorch.ops.elementwise_ops import extract_arg_list
 
-        assert x.device == y.device
+        if x.device != y.device:
+            raise MismatchDevicesError([x.device, y.device])
 
         arg_list = extract_arg_list(arg_types, args, x)
 

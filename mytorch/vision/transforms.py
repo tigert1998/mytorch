@@ -26,7 +26,8 @@ class Normalize(Module):
 
 class ToTensor:
     def __call__(self, pic: Image.Image):
-        assert pic.mode in ["L"]
+        if pic.mode not in ["L"]:
+            raise NotImplementedError()
         data = (np.array(pic) / 255.0).astype(np.float32)
         if len(data.shape) == 2:
             data = np.expand_dims(data, 0)

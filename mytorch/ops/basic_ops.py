@@ -3,6 +3,7 @@ import numpy as np
 from mytorch.tensor import (
     InvalidDataTypeError,
     InvalidDeviceError,
+    MismatchDevicesError,
     CudaMemory,
     shape_size,
     Tensor,
@@ -105,7 +106,8 @@ def _cuda_bmm(x, y, x_t: bool, y_t: bool, requires_grad):
 def mm(x, y):
     from mytorch.tensor import Tensor
 
-    assert x.device == y.device
+    if x.device != y.device:
+        raise MismatchDevicesError([x.device, y.device])
 
     requires_grad = x.requires_grad or y.requires_grad
 
@@ -163,7 +165,8 @@ def mm_backward(output_grad, x, y):
 def bmm(x, y):
     from mytorch.tensor import Tensor
 
-    assert x.device == y.device
+    if x.device != y.device:
+        raise MismatchDevicesError([x.device, y.device])
 
     requires_grad = x.requires_grad or y.requires_grad
 

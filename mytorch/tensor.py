@@ -19,6 +19,30 @@ class InvalidDataTypeError(RuntimeError):
         super().__init__(message)
 
 
+class InvalidShapeError(RuntimeError):
+    def __init__(self, shape):
+        message = f"Invalid tensor shape: {shape}"
+        super().__init__(message)
+
+
+class MismatchDevicesError(RuntimeError):
+    def __init__(self, device_types):
+        message = f"Mismatch devices between tensors: {device_types}"
+        super().__init__(message)
+
+
+class MismatchDataTypesError(RuntimeError):
+    def __init__(self, data_types):
+        message = f"Mismatch data types between tensors: {data_types}"
+        super().__init__(message)
+
+
+class MismatchShapesError(RuntimeError):
+    def __init__(self, shapes):
+        message = f"Mismatch shapes between tensors: {shapes}"
+        super().__init__(message)
+
+
 def shape_size(shape):
     from functools import reduce
 
@@ -135,9 +159,11 @@ class Tensor:
         cuda_context_manager = CudaEnv.instance().context_manager
 
         if cpu_array is not None:
-            assert self.dtype is None or self.dtype == cpu_array.dtype
+            if self.dtype is not None and self.dtype != cpu_array.dtype:
+                raise InvalidDataTypeError(self.dtype)
             self.dtype = cpu_array.dtype
-            assert self.shape is None or self.shape == cpu_array.shape
+            if self.shape is not None and self.shape != cpu_array.shape:
+                raise InvalidShapeError(self.shape)
             self.shape = cpu_array.shape
 
             if self.device.type == "cpu":

@@ -49,12 +49,14 @@ class DataLoader:
                     tensor = cat([i.reshape((1, *i.shape)) for i in array], dim=0)
 
                 else:
-                    assert (
-                        False
-                    ), f"Invalid data type in default collate: {type(element[i])}"
+                    raise RuntimeError(
+                        f"Invalid data type in default collate: {type(element[i])}"
+                    )
 
                 batch.append(tensor)
 
             return batch
         else:
-            assert False, f"Invalid element type in default collate: {type(element)}"
+            raise RuntimeError(
+                f"Invalid element type in default collate: {type(element)}"
+            )

@@ -229,7 +229,10 @@ class CublasLt:
         self.cublas_status[16] = "CUBLAS_STATUS_LICENSE_ERROR"
 
     def _check_cublas_errors(self, ret):
-        assert ret == 0, self.cublas_status[ret]
+        if ret != 0:
+            raise RuntimeError(
+                f"cublasLt return code: {ret}({self.cublas_status[ret]})"
+            )
 
     def create(self) -> np.ndarray:
         light_handle = np.array(0, dtype=np.uint64)
