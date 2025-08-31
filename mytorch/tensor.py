@@ -35,11 +35,11 @@ class Device:
             self.index = device.index
         else:
             device = device.strip()
-            if device in ["cpu"]:
+            sep = device.find(":")
+            if sep < 0:
                 self.type = device
                 self.index = None
             else:
-                sep = device.find(":")
                 self.type = device[:sep].strip()
                 self.index = int(device[sep + 1 :])
 
@@ -90,13 +90,22 @@ class CudaMemory:
         )
 
 
+def tensor(data, dtype=None, device=None, requires_grad=False):
+    data = np.array(data)
+    if dtype is not None:
+        data = data.astype(dtype)
+    return Tensor(
+        cpu_array=data, dtype=dtype, device=device, requires_grad=requires_grad
+    )
+
+
 class Tensor:
     def __init__(
         self,
         cpu_array: np.ndarray = None,
         dtype=None,
         shape=None,
-        device="cpu",
+        device=None,
         tensor=None,
         requires_grad=False,
     ):
@@ -111,7 +120,7 @@ class Tensor:
             self.device = tensor.device
             return
 
-        self.device: Device = Device(device)
+        self.device: Device = Device(device if device is not None else "cpu")
         if self.device.type not in [
             "cpu",
             "cuda",
