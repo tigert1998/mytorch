@@ -11,9 +11,15 @@ def _batch_norm_2d(
     requires_grad = input.requires_grad
     batch_size, channels, height, width = input.shape
     if weight is not None and bias is not None:
-        assert input.dtype == weight.dtype and input.dtype == bias.dtype
-        assert input.device == weight.device and input.device == bias.device
-        assert weight.shape == (channels,) and bias.shape == (channels,)
+        if not (
+            input.dtype == weight.dtype
+            and input.dtype == bias.dtype
+            and input.device == weight.device
+            and input.device == bias.device
+            and weight.shape == (channels,)
+            and bias.shape == (channels,)
+        ):
+            raise RuntimeError("BatchNorm2d shape/dtype/device mismatch")
         requires_grad |= weight.requires_grad or bias.requires_grad
 
     tensor = Tensor(

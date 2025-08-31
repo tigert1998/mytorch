@@ -10,7 +10,10 @@ class SimpleCudaMemoryAllocator:
         self._ptr_mem_size = {}
 
     def allocate(self, size):
-        assert size >= 1
+        if size <= 0:
+            raise RuntimeError(
+                f"SimpleCudaMemoryAllocator cannot allocate {size} bytes"
+            )
         new_size = 1 << int(np.ceil(np.log2(size)))
         new_size = max(new_size, 8)  # at least 8 bytes
         if self._pool.get(new_size) is None:

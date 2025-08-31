@@ -12,7 +12,8 @@ from mytorch.autograd import DAGTracker
 
 
 def _calculate_reduce_shape(shape, axis, keepdim):
-    assert np.all([0 <= i and i < len(shape) and isinstance(i, int) for i in axis])
+    if not np.all([0 <= i and i < len(shape) and isinstance(i, int) for i in axis]):
+        raise RuntimeError(f"Reduce axis is invalid: {axis}")
     if keepdim:
         shape = [(1 if i in axis else shape_i) for i, shape_i in enumerate(shape)]
     else:

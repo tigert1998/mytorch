@@ -6,7 +6,8 @@ from mytorch.autograd import DAGTracker
 
 
 def cross_entropy(input, target):
-    assert target.dtype == np.int64
+    if target.dtype != np.int64:
+        raise InvalidDataTypeError(target.dtype)
     batch_size, num_classes = input.shape
 
     requires_grad = input.requires_grad

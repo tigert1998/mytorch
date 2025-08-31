@@ -197,20 +197,22 @@ class CudaKernel:
         np_args = []
         for arg in args:
             if isinstance(arg, Tensor):
-                assert (
-                    arg.device.type == "cuda"
-                    and arg.device.index == self.stream.device_id
-                )
+                if (
+                    arg.device.type != "cuda"
+                    or arg.device.index != self.stream.device_id
+                ):
+                    raise RuntimeError(
+                        f"Invalid device for invoking CUDA kernel: {arg.device}"
+                    )
                 np_args.append(np.array([int(arg.cuda_ptr.ptr)], dtype=np.uint64))
             elif isinstance(arg, np.ndarray):
                 np_args.append(arg)
             elif arg is None:
                 np_args.append(np.array(0, dtype=np.uint64))
             else:
-                error_msg = (
+                raise RuntimeError(
                     f"Invalid data type for invoking kernel: {arg} ({type(arg)})"
                 )
-                assert False, error_msg
         return np_args
 
     def run(self, grid_dim, block_dim, args, num_shared_bytes=0, timer: bool = False):

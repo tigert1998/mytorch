@@ -1,7 +1,12 @@
 import numpy as np
 
 from mytorch.autograd import DAGTracker
-from mytorch.tensor import Tensor, InvalidDeviceError, InvalidDataTypeError
+from mytorch.tensor import (
+    Tensor,
+    InvalidDeviceError,
+    InvalidDataTypeError,
+    MismatchDataTypesError,
+)
 from mytorch.cuda.env import CudaEnv
 from mytorch.ops.basic_ops import _cuda_bmm
 
@@ -35,9 +40,12 @@ def _im2col_input(input, weight, bias, stride=1, padding=0):
             device=input.device,
         )
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
-        assert input.dtype == weight.dtype and (
-            bias is None or input.dtype == bias.dtype
-        )
+        if not (
+            input.dtype == weight.dtype and (bias is None or input.dtype == bias.dtype)
+        ):
+            dtypes = [input.dtype, weight.dtype]
+            dtypes += [bias.dtype] if bias is not None else []
+            raise MismatchDataTypesError(dtypes)
         if input.dtype == np.float32:
             func_name = "im2col_input_reference_fp32"
         elif input.dtype == np.float16:
@@ -87,9 +95,12 @@ def _col2im_input(a_tensor, input, weight, bias, stride=1, padding=0):
 
     if input.device.type == "cuda":
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
-        assert input.dtype == weight.dtype and (
-            bias is None or input.dtype == bias.dtype
-        )
+        if not (
+            input.dtype == weight.dtype and (bias is None or input.dtype == bias.dtype)
+        ):
+            dtypes = [input.dtype, weight.dtype]
+            dtypes += [bias.dtype] if bias is not None else []
+            raise MismatchDataTypesError(dtypes)
         if input.dtype == np.float32:
             func_name = "col2im_input_reference_fp32"
         elif input.dtype == np.float16:
@@ -253,9 +264,12 @@ def _col2im_weight(b_tensor, input, weight, bias, stride=1, padding=0):
 
 
 def conv2d(input, weight, bias=None, stride=1, padding=0):
-    assert input.device == weight.device and (
-        bias is None or input.device == bias.device
-    )
+    if not (
+        input.device == weight.device and (bias is None or input.device == bias.device)
+    ):
+        dtypes = [input.dtype, weight.dtype]
+        dtypes += [bias.dtype] if bias is not None else []
+        raise MismatchDataTypesError(dtypes)
 
     stride = (stride, stride) if isinstance(stride, int) else stride
     padding = (padding, padding) if isinstance(padding, int) else padding
@@ -304,11 +318,14 @@ def conv2d_backward(output_grad, input, weight, bias=None, stride=1, padding=0):
     padding = (padding, padding) if isinstance(padding, int) else padding
 
     if input.device.type == "cuda":
-        assert (
+        if not (
             input.dtype == weight.dtype
             and (bias is None or input.dtype == bias.dtype)
             and input.dtype == output_grad.dtype
-        )
+        ):
+            raise MismatchDataTypesError(
+                [input.dtype, weight.dtype] + [bias.dtype] if bias is not None else []
+            )
         a_tensor = _im2col_input(input, weight, bias, stride, padding)
         # [1, bhw, padded(C_in * k^2)]
         b_tensor = _im2col_weight(input, weight, bias, stride, padding)

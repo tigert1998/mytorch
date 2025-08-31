@@ -4,6 +4,7 @@ from typing import Tuple, List
 from mytorch.tensor import (
     InvalidDataTypeError,
     InvalidDeviceError,
+    MismatchDevicesError,
     Tensor,
     shape_size,
     CudaMemory,
@@ -13,13 +14,15 @@ from mytorch.autograd import DAGTracker
 
 
 def _calculate_broadcast_shape(x_shape, y_shape):
+    error_msg = f"Invalid broadcast shape: {x_shape} and {y_shape}"
     if len(x_shape) < len(y_shape):
         x_shape = (1,) * (len(y_shape) - len(x_shape)) + x_shape
     elif len(x_shape) > len(y_shape):
         y_shape = (1,) * (len(x_shape) - len(y_shape)) + y_shape
     ans = []
     for i, j in zip(x_shape, y_shape):
-        assert i == j or i == 1 or j == 1
+        if not (i == j or i == 1 or j == 1):
+            raise RuntimeError(error_msg)
         ans.append(max(i, j))
     return tuple(ans)
 
@@ -30,7 +33,8 @@ def broadcast_binary_opeartion_forward(
     def forward(x, y, *args):
         from mytorch.ops.elementwise_ops import extract_arg_list
 
-        assert x.device == y.device
+        if x.device != y.device:
+            raise MismatchDevicesError([x.device, y.device])
 
         arg_list = extract_arg_list(arg_types, args, x)
 

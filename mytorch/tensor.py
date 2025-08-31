@@ -19,6 +19,30 @@ class InvalidDataTypeError(RuntimeError):
         super().__init__(message)
 
 
+class InvalidShapeError(RuntimeError):
+    def __init__(self, shape):
+        message = f"Invalid tensor shape: {shape}"
+        super().__init__(message)
+
+
+class MismatchDevicesError(RuntimeError):
+    def __init__(self, device_types):
+        message = f"Mismatch devices between tensors: {device_types}"
+        super().__init__(message)
+
+
+class MismatchDataTypesError(RuntimeError):
+    def __init__(self, data_types):
+        message = f"Mismatch data types between tensors: {data_types}"
+        super().__init__(message)
+
+
+class MismatchShapesError(RuntimeError):
+    def __init__(self, shapes):
+        message = f"Mismatch shapes between tensors: {shapes}"
+        super().__init__(message)
+
+
 def shape_size(shape):
     from functools import reduce
 
@@ -135,9 +159,11 @@ class Tensor:
         cuda_context_manager = CudaEnv.instance().context_manager
 
         if cpu_array is not None:
-            assert self.dtype is None or self.dtype == cpu_array.dtype
+            if self.dtype is not None and self.dtype != cpu_array.dtype:
+                raise InvalidDataTypeError(self.dtype)
             self.dtype = cpu_array.dtype
-            assert self.shape is None or self.shape == cpu_array.shape
+            if self.shape is not None and self.shape != cpu_array.shape:
+                raise InvalidShapeError(self.shape)
             self.shape = cpu_array.shape
 
             if self.device.type == "cpu":
@@ -157,7 +183,8 @@ class Tensor:
                 np.dtype(self.dtype).itemsize * shape_size(self.shape)
             )
 
-        assert not self.requires_grad or np.issubdtype(self.dtype, np.floating)
+        if self.requires_grad and not np.issubdtype(self.dtype, np.floating):
+            raise RuntimeError(f"tensor of type {self.dtype} cannot require gradient")
 
     def _to_device(self, device):
         device = Device(device)
@@ -230,7 +257,8 @@ class Tensor:
     def copy_(self, tensor):
         from mytorch.ops.broadcast_binary_ops import _copy
 
-        assert isinstance(tensor, Tensor) and self.dtype == tensor.dtype
+        if not isinstance(tensor, Tensor) or self.dtype != tensor.dtype:
+            raise RuntimeError(f"Invalid tensor type to copy from: {tensor}")
         _copy(self, tensor.to(self.device))
 
     def sum(self, dim=None, keepdim=False):
@@ -358,7 +386,10 @@ class Tensor:
         return Tensor(tensor=self, requires_grad=False)
 
     def numpy(self) -> np.ndarray:
-        assert not self.requires_grad and self.device.type == "cpu"
+        if self.requires_grad or not self.device.type == "cpu":
+            raise RuntimeError(
+                "Tensor that requires gradient or not on CPU cannot be converted to NumPy array"
+            )
         return self.cpu_array
 
     def backward(self):

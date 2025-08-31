@@ -124,12 +124,13 @@ class DAGTracker:
         return order, initial_tensors
 
     def backward(self, tensor):
-        from mytorch.tensor import Tensor, shape_size
+        from mytorch.tensor import Tensor, shape_size, MismatchShapesError
 
         order, initial_tensors = self._topological_sort(tensor)
-        assert len(order) >= 1, "make sure you don't backward a tensor twice"
-        assert tensor in initial_tensors
-        assert shape_size(tensor.shape) == 1
+        if len(order) == 0:
+            raise RuntimeError("Make sure you don't backward a tensor twice")
+        if shape_size(tensor.shape) != 1:
+            raise RuntimeError("Backward tensor must be a scalar")
         tensor.grad = Tensor(
             cpu_array=np.array(1, dtype=tensor.dtype).reshape(tensor.shape),
             device=tensor.device,
@@ -160,7 +161,10 @@ class DAGTracker:
                     if input_tensor.grad is None:
                         input_tensor.grad = grad
                     else:
-                        assert input_tensor.grad.shape == grad.shape
+                        if input_tensor.grad.shape != grad.shape:
+                            raise MismatchShapesError(
+                                [input_tensor.grad.shape, grad.shape]
+                            )
                         input_tensor.grad += grad
 
         # erase tensor and nodes from the connected dag

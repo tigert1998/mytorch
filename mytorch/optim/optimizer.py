@@ -22,11 +22,13 @@ class Optimizer:
             param_group.setdefault(key, self.defaults[key])
 
         for param in param_group["params"]:
-            assert isinstance(param, Tensor)
+            if not isinstance(param, Tensor):
+                raise RuntimeError(f"There's a non-tensor value in params: {param}")
         param_set = set()
         for group in self.param_groups:
             param_set.update(set(group["params"]))
-        assert param_set.isdisjoint(set(param_group["params"]))
+        if not param_set.isdisjoint(set(param_group["params"])):
+            raise RuntimeError("Param groups have overlap")
 
         self.param_groups.append(param_group)
 
@@ -61,9 +63,15 @@ class Optimizer:
         state = state_dict["state"]
         param_groups = state_dict["param_groups"]
 
-        assert len(param_groups) == len(self.param_groups)
+        if len(param_groups) != len(self.param_groups):
+            raise RuntimeError(
+                "Optimizer state_dict has a different param group length from the loaded one"
+            )
         for i in range(len(param_groups)):
-            assert len(param_groups[i]["params"]) == len(self.param_groups[i]["params"])
+            if len(param_groups[i]["params"]) != len(self.param_groups[i]["params"]):
+                raise RuntimeError(
+                    "Optimizer state_dict is different from the loaded one"
+                )
 
         for i in range(len(self.param_groups)):
             for j in range(len(self.param_groups[i]["params"])):

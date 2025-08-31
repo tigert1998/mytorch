@@ -3,7 +3,13 @@ from functools import cache
 import numpy as np
 
 from mytorch.ops.cast import dtype_to_cpp_type, dtype_to_str
-from mytorch.tensor import CudaMemory, Tensor, shape_size, InvalidDeviceError
+from mytorch.tensor import (
+    CudaMemory,
+    Tensor,
+    shape_size,
+    InvalidDeviceError,
+    MismatchDataTypesError,
+)
 from mytorch.cuda.env import CudaEnv
 
 
@@ -35,7 +41,8 @@ __global__ void eq_reference(int n, int x_shape_n, int* x_shape, int y_shape_n,
 
 
 def eq(x, y):
-    assert x.dtype == y.dtype
+    if x.dtype != y.dtype:
+        raise MismatchDataTypesError([x.dtype, y.dtype])
 
     if x.device.type == "cuda":
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager

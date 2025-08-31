@@ -13,7 +13,8 @@ from mytorch.autograd import DAGTracker
 
 
 def max(tensor, dim=None, keepdim=False):
-    assert dim is None or isinstance(dim, int)
+    if dim is not None and not isinstance(dim, int):
+        raise RuntimeError(f"max dimension must be a integer or None: {dim}")
     if dim is None:
         return_indices = False
         dim = tuple(range(len(tensor.shape)))
