@@ -10,12 +10,17 @@ def cat(tensors, dim):
     device = tensors[0].device
     shape = list(tensors[0].shape)
     for i in range(1, len(tensors)):
-        assert requires_grad == tensors[i].requires_grad
-        assert dtype == tensors[i].dtype
-        assert device == tensors[i].device
-        assert len(shape) == len(tensors[i].shape)
+        error_msg = f"tensor #{i} mismatches from tensor #0 in cat operator"
+        if not (
+            requires_grad == tensors[i].requires_grad
+            and dtype == tensors[i].dtype
+            and device == tensors[i].device
+            and len(shape) == len(tensors[i].shape)
+        ):
+            raise RuntimeError(error_msg)
         for j in range(len(shape)):
-            assert j == dim or shape[j] == tensors[i].shape[j]
+            if j != dim and shape[j] != tensors[i].shape[j]:
+                raise RuntimeError(error_msg)
         shape[dim] += tensors[i].shape[dim]
 
     output_tensor = Tensor(

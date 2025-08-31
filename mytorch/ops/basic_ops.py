@@ -136,7 +136,8 @@ def mm(x, y):
 def mm_backward(output_grad, x, y):
     from mytorch.tensor import Tensor
 
-    assert output_grad.device == x.device and output_grad.device == y.device
+    if not (output_grad.device == x.device and output_grad.device == y.device):
+        raise MismatchDevicesError([output_grad.device, x.device, y.device])
 
     if x.device.type == "cuda":
         new_x = Tensor(tensor=x)
@@ -190,7 +191,8 @@ def bmm(x, y):
 def bmm_backward(output_grad, x, y):
     from mytorch.tensor import Tensor
 
-    assert output_grad.device == x.device and output_grad.device == y.device
+    if not (output_grad.device == x.device and output_grad.device == y.device):
+        raise MismatchDevicesError([output_grad.device, x.device, y.device])
 
     if x.device.type == "cuda":
         x_grad = _cuda_bmm(output_grad, y, False, True, False)
@@ -209,7 +211,8 @@ def bmm_backward(output_grad, x, y):
 
 
 def permute(x, dims):
-    assert len(dims) == len(x.shape)
+    if len(dims) != len(x.shape):
+        raise RuntimeError(f"permute dims is invalid: {dims}")
     dims = [(i + len(dims) if i < 0 else i) for i in dims]
 
     requires_grad = x.requires_grad

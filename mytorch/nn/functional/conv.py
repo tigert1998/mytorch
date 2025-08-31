@@ -40,9 +40,12 @@ def _im2col_input(input, weight, bias, stride=1, padding=0):
             device=input.device,
         )
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
-        assert input.dtype == weight.dtype and (
-            bias is None or input.dtype == bias.dtype
-        )
+        if not (
+            input.dtype == weight.dtype and (bias is None or input.dtype == bias.dtype)
+        ):
+            dtypes = [input.dtype, weight.dtype]
+            dtypes += [bias.dtype] if bias is not None else []
+            raise MismatchDataTypesError(dtypes)
         if input.dtype == np.float32:
             func_name = "im2col_input_reference_fp32"
         elif input.dtype == np.float16:
@@ -92,9 +95,12 @@ def _col2im_input(a_tensor, input, weight, bias, stride=1, padding=0):
 
     if input.device.type == "cuda":
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
-        assert input.dtype == weight.dtype and (
-            bias is None or input.dtype == bias.dtype
-        )
+        if not (
+            input.dtype == weight.dtype and (bias is None or input.dtype == bias.dtype)
+        ):
+            dtypes = [input.dtype, weight.dtype]
+            dtypes += [bias.dtype] if bias is not None else []
+            raise MismatchDataTypesError(dtypes)
         if input.dtype == np.float32:
             func_name = "col2im_input_reference_fp32"
         elif input.dtype == np.float16:
@@ -258,9 +264,12 @@ def _col2im_weight(b_tensor, input, weight, bias, stride=1, padding=0):
 
 
 def conv2d(input, weight, bias=None, stride=1, padding=0):
-    assert input.device == weight.device and (
-        bias is None or input.device == bias.device
-    )
+    if not (
+        input.device == weight.device and (bias is None or input.device == bias.device)
+    ):
+        dtypes = [input.dtype, weight.dtype]
+        dtypes += [bias.dtype] if bias is not None else []
+        raise MismatchDataTypesError(dtypes)
 
     stride = (stride, stride) if isinstance(stride, int) else stride
     padding = (padding, padding) if isinstance(padding, int) else padding
