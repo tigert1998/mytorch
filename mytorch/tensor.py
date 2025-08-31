@@ -183,7 +183,8 @@ class Tensor:
                 np.dtype(self.dtype).itemsize * shape_size(self.shape)
             )
 
-        assert not self.requires_grad or np.issubdtype(self.dtype, np.floating)
+        if self.requires_grad and not np.issubdtype(self.dtype, np.floating):
+            raise RuntimeError(f"tensor of type {self.dtype} cannot require gradient")
 
     def _to_device(self, device):
         device = Device(device)
@@ -256,7 +257,8 @@ class Tensor:
     def copy_(self, tensor):
         from mytorch.ops.broadcast_binary_ops import _copy
 
-        assert isinstance(tensor, Tensor) and self.dtype == tensor.dtype
+        if not isinstance(tensor, Tensor) or self.dtype != tensor.dtype:
+            raise RuntimeError(f"Invalid tensor type to copy from: {tensor}")
         _copy(self, tensor.to(self.device))
 
     def sum(self, dim=None, keepdim=False):
@@ -384,7 +386,10 @@ class Tensor:
         return Tensor(tensor=self, requires_grad=False)
 
     def numpy(self) -> np.ndarray:
-        assert not self.requires_grad and self.device.type == "cpu"
+        if self.requires_grad or not self.device.type == "cpu":
+            raise RuntimeError(
+                "Tensor that requires gradient or not on CPU cannot be converted to NumPy array"
+            )
         return self.cpu_array
 
     def backward(self):
