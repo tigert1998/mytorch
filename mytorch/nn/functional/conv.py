@@ -1,7 +1,12 @@
 import numpy as np
 
 from mytorch.autograd import DAGTracker
-from mytorch.tensor import Tensor, InvalidDeviceError, InvalidDataTypeError
+from mytorch.tensor import (
+    Tensor,
+    InvalidDeviceError,
+    InvalidDataTypeError,
+    MismatchDataTypesError,
+)
 from mytorch.cuda.env import CudaEnv
 from mytorch.ops.basic_ops import _cuda_bmm
 
@@ -304,11 +309,14 @@ def conv2d_backward(output_grad, input, weight, bias=None, stride=1, padding=0):
     padding = (padding, padding) if isinstance(padding, int) else padding
 
     if input.device.type == "cuda":
-        assert (
+        if not (
             input.dtype == weight.dtype
             and (bias is None or input.dtype == bias.dtype)
             and input.dtype == output_grad.dtype
-        )
+        ):
+            raise MismatchDataTypesError(
+                [input.dtype, weight.dtype] + [bias.dtype] if bias is not None else []
+            )
         a_tensor = _im2col_input(input, weight, bias, stride, padding)
         # [1, bhw, padded(C_in * k^2)]
         b_tensor = _im2col_weight(input, weight, bias, stride, padding)

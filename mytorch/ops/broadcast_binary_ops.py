@@ -14,13 +14,15 @@ from mytorch.autograd import DAGTracker
 
 
 def _calculate_broadcast_shape(x_shape, y_shape):
+    error_msg = f"Invalid broadcast shape: {x_shape} and {y_shape}"
     if len(x_shape) < len(y_shape):
         x_shape = (1,) * (len(y_shape) - len(x_shape)) + x_shape
     elif len(x_shape) > len(y_shape):
         y_shape = (1,) * (len(x_shape) - len(y_shape)) + y_shape
     ans = []
     for i, j in zip(x_shape, y_shape):
-        assert i == j or i == 1 or j == 1
+        if not (i == j or i == 1 or j == 1):
+            raise RuntimeError(error_msg)
         ans.append(max(i, j))
     return tuple(ans)
 
