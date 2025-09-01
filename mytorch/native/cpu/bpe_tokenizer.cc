@@ -20,9 +20,6 @@ using FreqTableItem = uint64_t;
 struct PQItem {
   MergeType merge;
   FreqTableItem item;
-  bool operator<(const PQItem& other) const {
-    return item < other.item || item == other.item && merge < other.merge;
-  }
 };
 
 struct Node {
@@ -32,10 +29,20 @@ struct Node {
 
 BPETokenizerParams TrainBPETokenizer(const std::string& raw_path,
                                      int num_merges, bool progress) {
-  std::priority_queue<PQItem> pq;
+  std::vector<std::string> vocab;
+
+  auto cmp = [&vocab](const auto& self, const auto& other) {
+    return self.item < other.item ||
+           self.item == other.item &&
+               vocab[self.merge.first] < vocab[other.merge.first] ||
+           self.item == other.item &&
+               vocab[self.merge.first] == vocab[other.merge.first] &&
+               vocab[self.merge.second] < vocab[other.merge.second];
+  };
+
+  std::priority_queue<PQItem, std::vector<PQItem>, decltype(cmp)> pq(cmp);
   std::map<MergeType, FreqTableItem> freq_table;
   std::map<MergeType, std::set<Node*>> merge_to_nodes;
-  std::vector<std::string> vocab;
   std::vector<MergeType> merges;
   vocab.resize(num_merges + 256);
   merges.reserve(num_merges);
@@ -171,4 +178,5 @@ int main() {
       "C:/Users/tiger/Projects/datasets/TinyStoriesV2-GPT4-valid.txt", 10000,
       true);
   ExportBPETokenizerParams(params, "./test.json");
+  return 0;
 }
