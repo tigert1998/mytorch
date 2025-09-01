@@ -120,7 +120,7 @@ class CudaCompiler:
         cuda_include_paths = [
             osp.join(cuda_path, "include"),
             osp.join(cuda_path, "include/cccl"),
-            osp.join(osp.dirname(__file__), "../cuda_kernels/include"),
+            osp.join(osp.dirname(__file__), "../native/cuda/include"),
         ]
         opts = [
             b"--fmad=false",
@@ -265,7 +265,7 @@ class CudaKernelAndStreamManager:
             if self._modules.get(device_id) is None:
                 self._modules[device_id] = {}
             self._modules[device_id][cu_file_path] = self._cuda_compiler.compile(
-                osp.join(osp.dirname(__file__), "../cuda_kernels", cu_file_path),
+                osp.join(osp.dirname(__file__), "../native/cuda", cu_file_path),
                 device_id,
                 source=source,
             )

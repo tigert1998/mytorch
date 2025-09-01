@@ -81,7 +81,7 @@ class MNIST(Dataset):
     def _get_img(x_buf, idx):
         offset = idx * 784
         data = struct.unpack_from(">784B", x_buf, offset + 16)
-        return np.array(data).reshape(28, 28)
+        return np.array(data).reshape(28, 28).astype(np.uint8)
 
     @staticmethod
     def _get_label(y_buf, idx):
