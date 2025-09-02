@@ -154,20 +154,13 @@ class BPETokenizer:
         return groups
 
     def encode(self, text):
-        if isinstance(text, str):
-            return self._internal_encode(text)
-        elif isinstance(text, list) and isinstance(text[0], str):
-            return [self._internal_encode(t) for t in text]
-        else:
-            raise RuntimeError(f"Invalid text type for tokenizer encoding: {text}")
+        return self._internal_encode(text)
 
     def decode(self, idxs):
-        if isinstance(idxs[0], int):
-            return self._internal_decode(idxs)
-        elif isinstance(idxs[0], list) and isinstance(idxs[0][0], int):
-            return [self._internal_decode(ls) for ls in idxs]
-        else:
-            raise RuntimeError(f"Invalid indices type for tokenizer decoding: {idxs}")
+        return self._internal_decode(idxs)
+
+    def tokenize(self, text):
+        return [self._internal_decode([i]) for i in self._internal_encode(text)]
 
     def _internal_encode(self, text: str) -> List[int]:
         if self._special_token_pattern is not None:
