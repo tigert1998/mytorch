@@ -123,7 +123,7 @@ class BPETokenizer:
     ):
         self.special_tokens = special_tokens if special_tokens is not None else []
         if len(self.special_tokens) > 0:
-            self._special_token_pattern = self.build_special_token_pattern(
+            self._special_token_pattern = self._build_special_token_pattern(
                 self.special_tokens
             )
         else:
@@ -152,6 +152,22 @@ class BPETokenizer:
                 ]
                 groups.extend(indices_array)
         return groups
+
+    def encode(self, text):
+        if isinstance(text, str):
+            return self._internal_encode(text)
+        elif isinstance(text, list) and isinstance(text[0], str):
+            return [self._internal_encode(t) for t in text]
+        else:
+            raise RuntimeError(f"Invalid text type for tokenizer encoding: {text}")
+
+    def decode(self, idxs):
+        if isinstance(idxs[0], int):
+            return self._internal_decode(idxs)
+        elif isinstance(idxs[0], list) and isinstance(idxs[0][0], int):
+            return [self._internal_decode(ls) for ls in idxs]
+        else:
+            raise RuntimeError(f"Invalid indices type for tokenizer decoding: {idxs}")
 
     def _internal_encode(self, text: str) -> List[int]:
         if self._special_token_pattern is not None:
@@ -261,7 +277,7 @@ class BPETokenizer:
             )
 
     @staticmethod
-    def build_special_token_pattern(special_tokens):
+    def _build_special_token_pattern(special_tokens):
         return f"({'|'.join(re.escape(s) for s in sorted(special_tokens, key=lambda s: -len(s)))})"
 
     def train(
@@ -269,7 +285,7 @@ class BPETokenizer:
     ):
         if special_tokens is not None:
             self.special_tokens = special_tokens
-            self._special_token_pattern = self.build_special_token_pattern(
+            self._special_token_pattern = self._build_special_token_pattern(
                 self.special_tokens
             )
 
