@@ -1,4 +1,3 @@
-import numpy as np
 import argparse
 
 import mytorch
@@ -72,7 +71,7 @@ def train_mnist(ckpt, save_ckpt):
         model.train()
         for i, (x, y) in enumerate(train_data_loader):
             input_tensor = x.to("cuda:0")
-            target = y.to("cuda:0", np.int64)
+            target = y.to("cuda:0", mytorch.int64)
             logits = model(input_tensor)
             loss = F.cross_entropy(logits, target)
             optimizer.zero_grad()
@@ -80,7 +79,7 @@ def train_mnist(ckpt, save_ckpt):
             if (i + 1) % 16 == 0:
                 loss = loss.item()
                 accuracy = (
-                    logits.max(dim=1)[1].eq(target).to(dtype=np.float32).mean()
+                    logits.max(dim=1)[1].eq(target).to(dtype=mytorch.float32).mean()
                 ).item()
                 print(
                     f"Epoch #{epoch}, step #{i}, accuracy: {accuracy* 100:0.2f}%, loss: {loss:0.4f}"
@@ -91,10 +90,12 @@ def train_mnist(ckpt, save_ckpt):
         correct = 0
         for i, (x, y) in enumerate(test_data_loader):
             input_tensor = x.to("cuda:0")
-            target = y.to("cuda:0", np.int64)
+            target = y.to("cuda:0", mytorch.int64)
             with mytorch.no_grad():
                 logits = model(input_tensor)
-            correct += logits.max(dim=1)[1].eq(target).to(dtype=np.float32).sum().item()
+            correct += (
+                logits.max(dim=1)[1].eq(target).to(dtype=mytorch.float32).sum().item()
+            )
         accuracy = correct / len(test_dataset)
         print(f"Epoch #{epoch}, test accuracy: {accuracy *100:0.2f}%")
 

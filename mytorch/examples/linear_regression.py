@@ -19,8 +19,10 @@ def make_data(batch_size):
 def linear_regression(x, y, device):
     linear = nn.Linear(1, 1, bias=True, device=device)
     optimizer = optim.SGD(linear.parameters(), lr=1e-2)
-    input_tensor = mytorch.tensor(x.reshape((-1, 1)), dtype=np.float32, device=device)
-    ans = mytorch.tensor(y.reshape((len(x), 1)), dtype=np.float32, device=device)
+    input_tensor = mytorch.tensor(
+        x.reshape((-1, 1)), dtype=mytorch.float32, device=device
+    )
+    ans = mytorch.tensor(y.reshape((len(x), 1)), dtype=mytorch.float32, device=device)
 
     for i in tqdm(range(500)):
         optimizer.zero_grad()

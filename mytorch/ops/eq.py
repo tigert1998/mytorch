@@ -2,7 +2,6 @@ from functools import cache
 
 import numpy as np
 
-from mytorch.ops.cast import dtype_to_cpp_type, dtype_to_str
 from mytorch.tensor import (
     CudaMemory,
     Tensor,
@@ -11,6 +10,7 @@ from mytorch.tensor import (
     MismatchDataTypesError,
 )
 from mytorch.cuda.env import CudaEnv
+from mytorch.dtype import int8, int16, int32, int64, float16, float32, float64
 
 
 @cache
@@ -29,29 +29,29 @@ __global__ void eq_reference(int n, int x_shape_n, int* x_shape, int y_shape_n,
   output[xid] = (int8_t)(x[pair.x] == y[pair.y]);
 }
 """
-    dtypes = [np.int8, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64]
+    dtypes = [int8, int16, int32, int64, float16, float32, float64]
     for dtype in dtypes:
-        source += f"""extern "C" __global__ void eq_reference_{dtype_to_str(dtype)}(int n, int x_shape_n, int* x_shape,
+        source += f"""extern "C" __global__ void eq_reference_{dtype.name}(int n, int x_shape_n, int* x_shape,
                                              int y_shape_n, int* y_shape,
-                                             {dtype_to_cpp_type(dtype)}* x, {dtype_to_cpp_type(dtype)}* y, int8_t* output) {{
+                                             {dtype.cuda_dtype}* x, {dtype.cuda_dtype}* y, int8_t* output) {{
   eq_reference(n, x_shape_n, x_shape, y_shape_n, y_shape, x, y, output);
 }}
 """
     return source
 
 
-def eq(x, y):
+def eq(x: Tensor, y: Tensor):
     if x.dtype != y.dtype:
         raise MismatchDataTypesError([x.dtype, y.dtype])
 
     if x.device.type == "cuda":
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
-        func_name = f"eq_reference_{dtype_to_str(x.dtype)}"
+        func_name = f"eq_reference_{x.dtype.name}"
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
             "eq.cu", func_name, x.device.index, _generate_eq_cu()
         )
         output_tensor = Tensor(
-            dtype=np.int8,
+            dtype=int8,
             shape=x.shape,
             device=x.device,
         )
@@ -82,11 +82,11 @@ def eq(x, y):
         )
     elif x.device.type == "cpu":
         output_tensor = Tensor(
-            dtype=np.int8,
+            dtype=int8,
             shape=x.shape,
             device=x.device,
         )
-        output_tensor.cpu_array = (x == y).astype(np.int8)
+        output_tensor.cpu_array = (x._numpy() == y._numpy()).astype(np.int8)
     else:
         raise InvalidDeviceError(x.device.type)
 

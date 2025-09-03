@@ -3,6 +3,7 @@ import numpy as np
 from mytorch.tensor import Tensor
 from mytorch.nn.module import Module
 from mytorch.nn.parameter import Parameter, Tensor
+from mytorch.dtype import float32
 
 
 class _BatchNormBase(Module):
@@ -14,7 +15,7 @@ class _BatchNormBase(Module):
         affine=True,
         track_running_stats=True,
         device="cpu",
-        dtype=np.float32,
+        dtype=float32,
     ):
         super().__init__()
 
@@ -99,7 +100,7 @@ class BatchNorm1d(_BatchNormBase):
         affine=True,
         track_running_stats=True,
         device="cpu",
-        dtype=np.float32,
+        dtype=float32,
     ):
         super().__init__(
             num_features, eps, momentum, affine, track_running_stats, device, dtype
@@ -115,7 +116,7 @@ class BatchNorm2d(_BatchNormBase):
         affine=True,
         track_running_stats=True,
         device="cpu",
-        dtype=np.float32,
+        dtype=float32,
     ):
         super().__init__(
             num_features, eps, momentum, affine, track_running_stats, device, dtype

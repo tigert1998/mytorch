@@ -9,6 +9,7 @@ from mytorch.tensor import (
 )
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
+from mytorch.dtype import float16, float32
 
 
 def _calculate_reduce_shape(shape, axis, keepdim):
@@ -42,9 +43,9 @@ def reduce_operation_forward(name, arg_types, forward_op_cpu):
         )
 
         if tensor.device.type == "cuda":
-            if tensor.dtype == np.float32:
+            if tensor.dtype == float32:
                 func_name = f"{name}_reference_fp32"
-            elif tensor.dtype == np.float16:
+            elif tensor.dtype == float16:
                 func_name = f"{name}_reference_fp16"
             else:
                 raise InvalidDataTypeError(tensor.dtype)
@@ -70,7 +71,7 @@ def reduce_operation_forward(name, arg_types, forward_op_cpu):
             num_elements = shape_size(tensor.shape)
             block_dim = (1024, 1, 1)
             num_shared_bytes = (block_dim[0] // 32) * (
-                np.dtype(np.int64).itemsize + np.dtype(tensor).itemsize
+                np.dtype(np.int64).itemsize + tensor.dtype.itemsize()
             )
             cuda_kernel.run(
                 (1, 32, 1),
@@ -116,9 +117,9 @@ def reduce_operation_backward(name, backward_op_cpu):
         )
 
         if tensor.device.type == "cuda":
-            if tensor.dtype == np.float32:
+            if tensor.dtype == float32:
                 func_name = f"{name}_backward_reference_fp32"
-            elif tensor.dtype == np.float16:
+            elif tensor.dtype == float16:
                 func_name = f"{name}_backward_reference_fp16"
             else:
                 raise InvalidDataTypeError(tensor.dtype)

@@ -8,20 +8,20 @@ from mytorch.tensor import (
     shape_size,
     Tensor,
 )
+from mytorch.dtype import float16, float32
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
 from mytorch.cuda.cublas_lt import CublasLt
+from typing import Tuple
 
 
-def _cuda_bmm(x, y, x_t: bool, y_t: bool, requires_grad):
-    from mytorch.tensor import Tensor
-
+def _cuda_bmm(x: Tensor, y: Tensor, x_t: bool, y_t: bool, requires_grad: bool):
     cublas_lt = CublasLt.instance()
 
-    if x.dtype == np.float32:
+    if x.dtype == float32:
         compute_type = cublas_lt.CUBLAS_COMPUTE_32F
         data_type = cublas_lt.CUDA_R_32F
-    elif x.dtype == np.float16:
+    elif x.dtype == float16:
         compute_type = cublas_lt.CUBLAS_COMPUTE_16F
         data_type = cublas_lt.CUDA_R_16F
     else:
@@ -53,8 +53,8 @@ def _cuda_bmm(x, y, x_t: bool, y_t: bool, requires_grad):
             np.array(x.shape[0], np.int32),
         )
 
-    alpha = np.array(1, dtype=x.dtype)
-    beta = np.array(0, dtype=x.dtype)
+    alpha = np.array(1, dtype=x.dtype.np_dtype)
+    beta = np.array(0, dtype=x.dtype.np_dtype)
     handle = cublas_lt.create()
     matmul_desc = cublas_lt.matmul_desc_create(compute_type, data_type)
     if x_t:
@@ -76,18 +76,24 @@ def _cuda_bmm(x, y, x_t: bool, y_t: bool, requires_grad):
         device=x.device,
         requires_grad=requires_grad,
     )
+
+    if x.device.type != "cuda" or y.device.type != "cuda" or z.device.type != "cuda":
+        raise RuntimeError(
+            f"Cannot run cuda_mm on non-GPU memory: {x.device}, {y.device}"
+        )
+
     cublas_lt.matmul(
         handle,
         matmul_desc,
         alpha,
-        int(x.cuda_ptr.ptr),
+        int(x._cuda_ptr()),
         a_desc,
-        int(y.cuda_ptr.ptr),
+        int(y._cuda_ptr()),
         b_desc,
         beta,
-        int(z.cuda_ptr.ptr),
+        int(z._cuda_ptr()),
         d_desc,
-        int(z.cuda_ptr.ptr),
+        int(z._cuda_ptr()),
         d_desc,
         None,
         0,
@@ -103,9 +109,7 @@ def _cuda_bmm(x, y, x_t: bool, y_t: bool, requires_grad):
     return z
 
 
-def mm(x, y):
-    from mytorch.tensor import Tensor
-
+def mm(x: Tensor, y: Tensor):
     if x.device != y.device:
         raise MismatchDevicesError([x.device, y.device])
 
@@ -120,7 +124,7 @@ def mm(x, y):
         z.shape = z.shape[1:]
 
     elif x.device.type == "cpu":
-        z_cpu_array = np.matmul(x.cpu_array, y.cpu_array)
+        z_cpu_array = np.matmul(x._numpy(), y._numpy())
         z = Tensor(cpu_array=z_cpu_array, device="cpu", requires_grad=requires_grad)
 
     else:
@@ -133,7 +137,7 @@ def mm(x, y):
 
 
 @DAGTracker.instance().register_backward_function("mm")
-def mm_backward(output_grad, x, y):
+def mm_backward(output_grad: Tensor, x: Tensor, y: Tensor):
     from mytorch.tensor import Tensor
 
     if not (output_grad.device == x.device and output_grad.device == y.device):
@@ -152,8 +156,8 @@ def mm_backward(output_grad, x, y):
         y_grad.shape = y_grad.shape[1:]
 
     elif x.device.type == "cpu":
-        x_grad_cpu_array = np.matmul(output_grad.cpu_array, y.cpu_array.T)
-        y_grad_cpu_array = np.matmul(x.cpu_array.T, output_grad.cpu_array)
+        x_grad_cpu_array = np.matmul(output_grad._numpy(), y._numpy().T)
+        y_grad_cpu_array = np.matmul(x._numpy().T, output_grad._numpy())
         x_grad = Tensor(cpu_array=x_grad_cpu_array, device="cpu")
         y_grad = Tensor(cpu_array=y_grad_cpu_array, device="cpu")
 
@@ -163,9 +167,7 @@ def mm_backward(output_grad, x, y):
     return [x_grad, y_grad]
 
 
-def bmm(x, y):
-    from mytorch.tensor import Tensor
-
+def bmm(x: Tensor, y: Tensor):
     if x.device != y.device:
         raise MismatchDevicesError([x.device, y.device])
 
@@ -175,7 +177,7 @@ def bmm(x, y):
         z = _cuda_bmm(x, y, False, False, requires_grad)
 
     elif x.device.type == "cpu":
-        z_cpu_array = np.matmul(x.cpu_array, y.cpu_array)
+        z_cpu_array = np.matmul(x._numpy(), y._numpy())
         z = Tensor(cpu_array=z_cpu_array, device="cpu", requires_grad=requires_grad)
 
     else:
@@ -188,9 +190,7 @@ def bmm(x, y):
 
 
 @DAGTracker.instance().register_backward_function("bmm")
-def bmm_backward(output_grad, x, y):
-    from mytorch.tensor import Tensor
-
+def bmm_backward(output_grad: Tensor, x: Tensor, y: Tensor):
     if not (output_grad.device == x.device and output_grad.device == y.device):
         raise MismatchDevicesError([output_grad.device, x.device, y.device])
 
@@ -199,8 +199,8 @@ def bmm_backward(output_grad, x, y):
         y_grad = _cuda_bmm(x, output_grad, True, False, False)
 
     elif x.device.type == "cpu":
-        x_grad_cpu_array = np.matmul(output_grad.cpu_array, y.cpu_array.T)
-        y_grad_cpu_array = np.matmul(x.cpu_array.T, output_grad.cpu_array)
+        x_grad_cpu_array = np.matmul(output_grad._numpy(), y._numpy().T)
+        y_grad_cpu_array = np.matmul(x._numpy().T, output_grad._numpy())
         x_grad = Tensor(cpu_array=x_grad_cpu_array, device="cpu")
         y_grad = Tensor(cpu_array=y_grad_cpu_array, device="cpu")
 
@@ -210,17 +210,17 @@ def bmm_backward(output_grad, x, y):
     return [x_grad, y_grad]
 
 
-def permute(x, dims):
+def permute(x: Tensor, dims: Tuple[int, ...]):
     if len(dims) != len(x.shape):
         raise RuntimeError(f"permute dims is invalid: {dims}")
-    dims = [(i + len(dims) if i < 0 else i) for i in dims]
+    dims = tuple([(i + len(dims) if i < 0 else i) for i in dims])
 
     requires_grad = x.requires_grad
 
     if x.device.type == "cuda":
-        if x.dtype == np.float32:
+        if x.dtype == float32:
             func_name = "permute_reference_fp32"
-        elif x.dtype == np.float16:
+        elif x.dtype == float16:
             func_name = "permute_reference_fp16"
         else:
             raise InvalidDataTypeError(x.dtype)
@@ -238,7 +238,7 @@ def permute(x, dims):
         num_bytes = np.dtype(np.int32).itemsize * len(dims)
         if num_bytes > 0:
             cuda_mem = CudaMemory(num_bytes * 2)
-            cuda_mem.write(np.array(list(x.shape) + dims, dtype=np.int32))
+            cuda_mem.write(np.array(x.shape + dims, dtype=np.int32))
             shape_ptr = int(cuda_mem.ptr)
             dims_ptr = shape_ptr + num_bytes
         else:
@@ -260,7 +260,7 @@ def permute(x, dims):
 
     elif x.device.type == "cpu":
         output_tensor = Tensor(
-            cpu_array=np.transpose(x.cpu_array, dims),
+            cpu_array=np.transpose(x._numpy(), dims),
             dtype=x.dtype,
             device=x.device,
             requires_grad=requires_grad,
@@ -276,13 +276,13 @@ def permute(x, dims):
 
 
 @DAGTracker.instance().register_backward_function("permute")
-def permute_backward(output_grad, x, dims):
-    dims = [(i + len(dims) if i < 0 else i) for i in dims]
+def permute_backward(output_grad: Tensor, x: Tensor, dims: Tuple[int, ...]):
+    dims = tuple([(i + len(dims) if i < 0 else i) for i in dims])
 
     if x.device.type == "cuda":
-        if x.dtype == np.float32:
+        if x.dtype == float32:
             func_name = "permute_backward_reference_fp32"
-        elif x.dtype == np.float16:
+        elif x.dtype == float16:
             func_name = "permute_backward_reference_fp16"
         else:
             raise InvalidDataTypeError(x.dtype)
@@ -299,7 +299,7 @@ def permute_backward(output_grad, x, dims):
         num_bytes = np.dtype(np.int32).itemsize * len(dims)
         if num_bytes > 0:
             cuda_mem = CudaMemory(num_bytes * 2)
-            cuda_mem.write(np.array(list(x.shape) + dims, dtype=np.int32))
+            cuda_mem.write(np.array(x.shape + dims, dtype=np.int32))
             shape_ptr = int(cuda_mem.ptr)
             dims_ptr = shape_ptr + num_bytes
         else:
@@ -320,12 +320,15 @@ def permute_backward(output_grad, x, dims):
         )
 
     elif x.device.type == "cpu":
-        reverse_dims = [None for _ in range(len(dims))]
+        reverse_dims = [-1 for _ in range(len(dims))]
         # [1, 2, 0] => [2, 0, 1]
         for i, permute in enumerate(dims):
             reverse_dims[permute] = i
+        for i in reverse_dims:
+            if i < 0:
+                raise RuntimeError(f"Invalid dimension: {dims}")
         input_grad = Tensor(
-            cpu_array=np.transpose(output_grad.cpu_array, reverse_dims),
+            cpu_array=np.transpose(output_grad._numpy(), tuple(reverse_dims)),
             dtype=x.dtype,
             device=x.device,
             shape=x.shape,
@@ -337,7 +340,9 @@ def permute_backward(output_grad, x, dims):
     return [input_grad]
 
 
-def _calculate_reshaped_shape(original_shape, target_shape):
+def _calculate_reshaped_shape(
+    original_shape: Tuple[int, ...], target_shape: Tuple[int, ...]
+):
     total_elements = shape_size(original_shape)
     target_elements = 1
     unknown_dim_index = None
@@ -358,9 +363,9 @@ def _calculate_reshaped_shape(original_shape, target_shape):
                 f"cannot reshape array of size {total_elements} into shape {target_shape}"
             )
         unknown_dim = total_elements // target_elements
-        target_shape = list(target_shape)
-        target_shape[unknown_dim_index] = unknown_dim
-        return tuple(target_shape)
+        target_shape_ls = list(target_shape)
+        target_shape_ls[unknown_dim_index] = unknown_dim
+        return tuple(target_shape_ls)
     else:
         if total_elements != target_elements:
             raise ValueError(
@@ -369,15 +374,13 @@ def _calculate_reshaped_shape(original_shape, target_shape):
         return target_shape
 
 
-def reshape(x, shape):
-    from mytorch.tensor import Tensor
-
+def reshape(x: Tensor, shape: Tuple[int, ...]):
     requires_grad = x.requires_grad
     new_x = Tensor(tensor=x, requires_grad=requires_grad)
     new_x.shape = _calculate_reshaped_shape(x.shape, shape)
 
     if new_x.device.type == "cpu":
-        new_x.cpu_array = new_x.cpu_array.reshape(new_x.shape)
+        new_x.cpu_array = new_x._numpy().reshape(new_x.shape)
 
     if requires_grad:
         DAGTracker.instance().add_node("reshape", [x, shape], [new_x])
@@ -386,9 +389,7 @@ def reshape(x, shape):
 
 
 @DAGTracker.instance().register_backward_function("reshape")
-def reshape_backward(output_grad, x, shape):
-    from mytorch.tensor import Tensor
-
+def reshape_backward(output_grad: Tensor, x: Tensor, shape: Tuple[int, ...]):
     input_grad = Tensor(tensor=output_grad)
     input_grad.shape = x.shape
 

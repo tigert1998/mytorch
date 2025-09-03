@@ -10,6 +10,7 @@ from mytorch.tensor import (
 )
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
+from mytorch.dtype import int64, float16, float32
 
 
 def max(tensor, dim=None, keepdim=False):
@@ -32,16 +33,16 @@ def max(tensor, dim=None, keepdim=False):
         requires_grad=requires_grad,
     )
     indices_tensor = Tensor(
-        dtype=np.int64,
+        dtype=int64,
         shape=output_shape,
         device=tensor.device,
         requires_grad=False,
     )
 
     if tensor.device.type == "cuda":
-        if tensor.dtype == np.float32:
+        if tensor.dtype == float32:
             func_name = "max_reference_fp32"
-        elif tensor.dtype == np.float16:
+        elif tensor.dtype == float16:
             func_name = "max_reference_fp16"
         else:
             raise InvalidDataTypeError(tensor.dtype)
@@ -62,7 +63,7 @@ def max(tensor, dim=None, keepdim=False):
         grid_dim = (1, 32, 1)
         block_dim = (1024, 1, 1)
         num_shared_bytes = (block_dim[0] // 32) * (
-            np.dtype(np.int64).itemsize + np.dtype(tensor).itemsize
+            np.dtype(np.int64).itemsize + tensor.dtype.itemsize()
         )
         num_elements = shape_size(tensor.shape)
         cuda_kernel.run(
@@ -103,9 +104,9 @@ def max_backward(output_grad, indices_tensor, tensor, dim, keepdim):
     input_grad = Tensor(dtype=tensor.dtype, shape=tensor.shape, device=tensor.device)
 
     if tensor.device.type == "cuda":
-        if tensor.dtype == np.float32:
+        if tensor.dtype == float32:
             func_name = "max_backward_reference_fp32"
-        elif tensor.dtype == np.float16:
+        elif tensor.dtype == float16:
             func_name = "max_backward_reference_fp16"
         else:
             raise InvalidDataTypeError(tensor.dtype)

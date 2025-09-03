@@ -3,6 +3,7 @@ import numpy as np
 from mytorch.optim.optimizer import Optimizer
 from mytorch.tensor import Tensor, InvalidDataTypeError, InvalidDeviceError, shape_size
 from mytorch.cuda.env import CudaEnv
+from mytorch.dtype import float16, float32
 
 
 class SGD(Optimizer):
@@ -40,9 +41,9 @@ class SGD(Optimizer):
                 momentum_buffer = self.state[param]["momentum_buffer"]
 
                 if param.device.type == "cuda":
-                    if param.dtype == np.float32:
+                    if param.dtype == float32:
                         func_name = "sgd_reference_fp32"
-                    elif param.dtype == np.float16:
+                    elif param.dtype == float16:
                         func_name = "sgd_reference_fp16"
                     else:
                         raise InvalidDataTypeError(param.dtype)
@@ -62,10 +63,10 @@ class SGD(Optimizer):
                             param,
                             param.grad,
                             momentum_buffer,
-                            np.array(group["lr"], dtype=param.dtype),
-                            np.array(group["weight_decay"], dtype=param.dtype),
-                            np.array(group["momentum"], dtype=param.dtype),
-                            np.array(group["dampening"], dtype=param.dtype),
+                            np.array(group["lr"], dtype=param.dtype.np_dtype),
+                            np.array(group["weight_decay"], dtype=param.dtype.np_dtype),
+                            np.array(group["momentum"], dtype=param.dtype.np_dtype),
+                            np.array(group["dampening"], dtype=param.dtype.np_dtype),
                             np.array(int(group["nesterov"]), dtype=np.int8),
                             np.array(int(group["maximize"]), dtype=np.int8),
                         ],

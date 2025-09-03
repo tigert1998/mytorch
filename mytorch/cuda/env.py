@@ -88,8 +88,11 @@ class CudaTimer:
 
 
 class CudaCompiler:
+    _cuda_context_manager: CudaContextManager
+    cudadevrt_path: str
+
     def __init__(self, cuda_context_manager):
-        self._cuda_context_manager: CudaContextManager = cuda_context_manager
+        self._cuda_context_manager = cuda_context_manager
         cudadevrt_paths = glob(
             f"{os.environ["CUDA_PATH"]}/lib*/**/*cudadevrt.*", recursive=True
         )
@@ -113,7 +116,7 @@ class CudaCompiler:
         )
         return major, minor
 
-    def compile(self, path, device_id, source=None):
+    def compile(self, path, device_id, source=None) -> driver.CUmodule:
         if source is not None:
             content = source
         else:
@@ -211,7 +214,7 @@ class CudaKernel:
                     raise RuntimeError(
                         f"Invalid device for invoking CUDA kernel: {arg.device}"
                     )
-                np_args.append(np.array([int(arg.cuda_ptr.ptr)], dtype=np.uint64))
+                np_args.append(np.array([int(arg._cuda_ptr())], dtype=np.uint64))
             elif isinstance(arg, np.ndarray):
                 np_args.append(arg)
             elif arg is None:
@@ -245,8 +248,15 @@ class CudaKernel:
 
 
 class CudaKernelAndStreamManager:
-    def __init__(self, cuda_compiler, cuda_context_manager):
-        self._cuda_compiler: CudaCompiler = cuda_compiler
+    _cuda_compiler: CudaCompiler
+    _cuda_context_manager: CudaContextManager
+    _streams: dict[int, CudaStream]
+    _modules: dict[int, dict[str, driver.CUmodule]]
+
+    def __init__(
+        self, cuda_compiler: CudaCompiler, cuda_context_manager: CudaContextManager
+    ):
+        self._cuda_compiler = cuda_compiler
         self._cuda_context_manager = cuda_context_manager
         self._streams = {}
         self._modules = {}

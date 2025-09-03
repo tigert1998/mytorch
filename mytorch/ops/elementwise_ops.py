@@ -3,14 +3,15 @@ import numpy as np
 from mytorch.tensor import InvalidDataTypeError, InvalidDeviceError, Tensor, shape_size
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
+from mytorch.dtype import float16, float32
 
 
-def extract_arg_list(arg_types, args, reference_tensor):
+def extract_arg_list(arg_types, args, reference_tensor: Tensor):
     arg_list = []
     for i, dic in enumerate(arg_types):
         dtype = dic["dtype"]
         if dtype == "default":
-            dtype = reference_tensor.dtype
+            dtype = reference_tensor.dtype.np_dtype
         value = np.array(args[i], dtype=dtype)
         arg_list.append(value)
     return arg_list
@@ -21,9 +22,9 @@ def elementwise_operation_forward(name, arg_types, no_grad_and_inplace, forward_
         arg_list = extract_arg_list(arg_types, args, x)
         requires_grad = not no_grad_and_inplace and x.requires_grad
         if x.device.type == "cuda":
-            if x.dtype == np.float32:
+            if x.dtype == float32:
                 func_name = f"{name}_reference_fp32"
-            elif x.dtype == np.float16:
+            elif x.dtype == float16:
                 func_name = f"{name}_reference_fp16"
             else:
                 raise InvalidDataTypeError(x.dtype)
@@ -87,9 +88,9 @@ def elementwise_operation_backward(name, backward_op_cpu):
         x_grad.fill_(0)
 
         if output_grad.device.type == "cuda":
-            if output_grad.dtype == np.float32:
+            if output_grad.dtype == float32:
                 func_name = f"{name}_backward_reference_fp32"
-            elif output_grad.dtype == np.float16:
+            elif output_grad.dtype == float16:
                 func_name = f"{name}_backward_reference_fp16"
             else:
                 raise InvalidDataTypeError(output_grad.dtype)
@@ -145,9 +146,11 @@ _normal = elementwise_operation_forward(
 )
 
 
-def _uniform_forward_op_cpu(x, seed, a, b):
+def _uniform_forward_op_cpu(x: Tensor, seed, a, b):
     np.random.seed(seed)
-    x.cpu_array = np.random.uniform(low=a, high=b, size=x.shape).astype(x.dtype)
+    x.cpu_array = np.random.uniform(low=a, high=b, size=x.shape).astype(
+        x.dtype.np_dtype
+    )
 
 
 _uniform = elementwise_operation_forward(
