@@ -1,4 +1,7 @@
 import numpy as np
+import os.path as osp
+from functools import cache
+from typing import Tuple
 
 from mytorch.tensor import (
     InvalidDataTypeError,
@@ -8,11 +11,35 @@ from mytorch.tensor import (
     shape_size,
     Tensor,
 )
-from mytorch.dtype import float16, float32
+from mytorch.dtype import int8, int16, int32, int64, float16, float32, float64
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
 from mytorch.cuda.cublas_lt import CublasLt
-from typing import Tuple
+
+
+@cache
+def _generate_basic_ops_cu():
+    with open(
+        osp.join(CudaEnv.instance().compiler.cuda_src_path, "basic_ops.cu"), "r"
+    ) as f:
+        source = f.read()
+
+    dtypes = [int8, int16, int32, int64, float16, float32, float64]
+    for dtype in dtypes:
+        source += f"""
+extern "C" __global__ void permute_reference_{dtype.name}(int n, {dtype.cuda_dtype}* input, {dtype.cuda_dtype}* output, int shape_n,
+                                  int* shape, int* permute) {{
+    permute_reference(n, input, output, shape_n, shape, permute);
+}}
+"""
+        if dtype.is_floating:
+            source += f"""
+extern "C" __global__ void permute_backward_reference_{dtype.name}(int n, int shape_n, int* shape, int* permute, {dtype.cuda_dtype}* input_grad, {dtype.cuda_dtype}* output_grad) {{
+    permute_backward_reference(n, shape_n, shape, permute, input_grad, output_grad);
+}}
+"""
+
+    return source
 
 
 def _cuda_bmm(x: Tensor, y: Tensor, x_t: bool, y_t: bool, requires_grad: bool):
@@ -218,15 +245,10 @@ def permute(x: Tensor, dims: Tuple[int, ...]):
     requires_grad = x.requires_grad
 
     if x.device.type == "cuda":
-        if x.dtype == float32:
-            func_name = "permute_reference_fp32"
-        elif x.dtype == float16:
-            func_name = "permute_reference_fp16"
-        else:
-            raise InvalidDataTypeError(x.dtype)
+        func_name = f"permute_reference_{x.dtype.name}"
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "basic_ops.cu", func_name, x.device.index
+            "basic_ops.cu", func_name, x.device.index, source=_generate_basic_ops_cu()
         )
         output_tensor = Tensor(
             dtype=x.dtype,
@@ -280,12 +302,7 @@ def permute_backward(output_grad: Tensor, x: Tensor, dims: Tuple[int, ...]):
     dims = tuple([(i + len(dims) if i < 0 else i) for i in dims])
 
     if x.device.type == "cuda":
-        if x.dtype == float32:
-            func_name = "permute_backward_reference_fp32"
-        elif x.dtype == float16:
-            func_name = "permute_backward_reference_fp16"
-        else:
-            raise InvalidDataTypeError(x.dtype)
+        func_name = f"permute_backward_reference_{x.dtype.name}"
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
             "basic_ops.cu", func_name, x.device.index
