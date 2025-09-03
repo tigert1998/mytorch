@@ -7,3 +7,5 @@ from .ops.cat import cat
 from .ops.eq import eq
 from .ops.max import max
 from .ops.reduce_ops import sum, mean, var, std
+
+from . import jit
