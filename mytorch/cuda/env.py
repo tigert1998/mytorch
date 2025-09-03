@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import os.path as osp
+from glob import glob
 
 from cuda.bindings import driver, nvrtc, runtime
 
@@ -89,6 +90,12 @@ class CudaTimer:
 class CudaCompiler:
     def __init__(self, cuda_context_manager):
         self._cuda_context_manager: CudaContextManager = cuda_context_manager
+        cudadevrt_paths = glob(
+            f"{os.environ["CUDA_PATH"]}/lib*/**/*cudadevrt.*", recursive=True
+        )
+        if len(cudadevrt_paths) != 1:
+            raise RuntimeError(f"cudadevrt path is vague: {cudadevrt_paths}")
+        self.cudadevrt_path = cudadevrt_paths[0]
 
     def _arch(self, device_id):
         cu_device = check_cuda_errors(driver.cuDeviceGet(device_id))
@@ -120,7 +127,7 @@ class CudaCompiler:
         cuda_include_paths = [
             osp.join(cuda_path, "include"),
             osp.join(cuda_path, "include/cccl"),
-            osp.join(osp.dirname(__file__), "../native/cuda/include"),
+            osp.join(osp.dirname(__file__), "../native/cuda"),
         ]
         opts = [
             b"--fmad=false",
@@ -165,7 +172,7 @@ class CudaCompiler:
                 [],
             )
         )
-        for lib in [f"{os.environ["CUDA_PATH"]}/lib/x64/cudadevrt.lib"]:
+        for lib in [self.cudadevrt_path]:
             check_cuda_errors(
                 driver.cuLinkAddFile(
                     link_state,
