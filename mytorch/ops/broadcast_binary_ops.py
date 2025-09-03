@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Tuple, List
+from typing import Tuple, List, Optional
 
 from mytorch.tensor import (
     InvalidDataTypeError,
@@ -9,11 +9,14 @@ from mytorch.tensor import (
     shape_size,
     CudaMemory,
 )
+from mytorch.dtype import float16, float32
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
 
 
-def _calculate_broadcast_shape(x_shape, y_shape):
+def _calculate_broadcast_shape(
+    x_shape: tuple[int, ...], y_shape: tuple[int, ...]
+) -> Tuple[int, ...]:
     error_msg = f"Invalid broadcast shape: {x_shape} and {y_shape}"
     if len(x_shape) < len(y_shape):
         x_shape = (1,) * (len(y_shape) - len(x_shape)) + x_shape
@@ -28,9 +31,9 @@ def _calculate_broadcast_shape(x_shape, y_shape):
 
 
 def broadcast_binary_opeartion_forward(
-    name, arg_types, no_grad_and_inplace, forward_op_cpu
+    name: str, arg_types, no_grad_and_inplace: bool, forward_op_cpu
 ):
-    def forward(x, y, *args):
+    def forward(x: Tensor, y: Tensor, *args) -> Optional[Tensor]:
         from mytorch.ops.elementwise_ops import extract_arg_list
 
         if x.device != y.device:
@@ -43,9 +46,9 @@ def broadcast_binary_opeartion_forward(
         requires_grad = not no_grad_and_inplace and (x.requires_grad or y.requires_grad)
 
         if x.device.type == "cuda":
-            if x.dtype == np.float32:
+            if x.dtype == float32:
                 func_name = f"{name}_reference_fp32"
-            elif x.dtype == np.float16:
+            elif x.dtype == float16:
                 func_name = f"{name}_reference_fp16"
             else:
                 raise InvalidDataTypeError(x.dtype)
@@ -69,7 +72,7 @@ def broadcast_binary_opeartion_forward(
             num_elements = shape_size(shape)
 
             if no_grad_and_inplace:
-                output_tensor = np.array(0, np.uint64)
+                null_ptr = np.array(0, np.uint64)
             else:
                 output_tensor = Tensor(
                     dtype=x.dtype,
@@ -90,7 +93,7 @@ def broadcast_binary_opeartion_forward(
                     x,
                     y,
                     *arg_list,
-                    output_tensor,
+                    null_ptr if no_grad_and_inplace else output_tensor,
                 ],
             )
 
@@ -115,31 +118,33 @@ def broadcast_binary_opeartion_forward(
         if not no_grad_and_inplace:
             return output_tensor
 
+        return None
+
     return forward
 
 
-def broadcast_binary_opeartion_backward(name, backward_op_cpu):
-    def tile_tensor(x, output_grad) -> Tuple[np.ndarray, List[int]]:
+def broadcast_binary_opeartion_backward(name: str, backward_op_cpu):
+    def tile_tensor(x: Tensor, output_grad: Tensor) -> Tuple[np.ndarray, List[int]]:
         x_shape = (1,) * (len(output_grad.shape) - len(x.shape)) + x.shape
         x_axis = [i for i in range(len(x_shape)) if x_shape[i] < output_grad.shape[i]]
         x_tile_reps = [
             output_grad.shape[i] if x_shape[i] < output_grad.shape[i] else 1
             for i in range(len(x_shape))
         ]
-        x_tile = np.tile(x.cpu_array, x_tile_reps)
+        x_tile = np.tile(x._numpy(), x_tile_reps)
         return x_tile, x_axis
 
     @DAGTracker.instance().register_backward_function(name)
-    def backward(output_grad, x, y, *args):
+    def backward(output_grad: Tensor, x: Tensor, y: Tensor, *args):
         x_grad = Tensor(dtype=x.dtype, shape=x.shape, device=x.device)
         x_grad.fill_(0)
         y_grad = Tensor(dtype=y.dtype, shape=y.shape, device=y.device)
         y_grad.fill_(0)
 
         if output_grad.device.type == "cuda":
-            if output_grad.dtype == np.float32:
+            if output_grad.dtype == float32:
                 func_name = f"{name}_backward_reference_fp32"
-            elif output_grad.dtype == np.float16:
+            elif output_grad.dtype == float16:
                 func_name = f"{name}_backward_reference_fp16"
             else:
                 raise InvalidDataTypeError(output_grad.dtype)

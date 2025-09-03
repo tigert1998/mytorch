@@ -2,47 +2,10 @@ from functools import cache
 
 import numpy as np
 
-from mytorch.tensor import InvalidDataTypeError, Tensor, shape_size, InvalidDeviceError
+from mytorch.tensor import Tensor, shape_size, InvalidDeviceError
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
-
-
-def dtype_to_str(dtype):
-    if dtype == np.int8:
-        return "int8"
-    elif dtype == np.int16:
-        return "int16"
-    elif dtype == np.int32:
-        return "int32"
-    elif dtype == np.int64:
-        return "int64"
-    elif dtype == np.float16:
-        return "fp16"
-    elif dtype == np.float32:
-        return "fp32"
-    elif dtype == np.float64:
-        return "fp64"
-    else:
-        raise InvalidDataTypeError(dtype)
-
-
-def dtype_to_cpp_type(dtype):
-    if dtype == np.int8:
-        return "int8_t"
-    elif dtype == np.int16:
-        return "int16_t"
-    elif dtype == np.int32:
-        return "int32_t"
-    elif dtype == np.int64:
-        return "int64_t"
-    elif dtype == np.float16:
-        return "half"
-    elif dtype == np.float32:
-        return "float"
-    elif dtype == np.float64:
-        return "double"
-    else:
-        raise InvalidDataTypeError(dtype)
+from mytorch.dtype import DType, int8, int16, int32, int64, float16, float32, float64
 
 
 @cache
@@ -62,12 +25,12 @@ __global__ void cast_reference(int n, T1* input, T2* output) {
 }
 """
 
-    dtypes = [np.int8, np.int16, np.int32, np.int64, np.float16, np.float32, np.float64]
+    dtypes = [int8, int16, int32, int64, float16, float32, float64]
     for s_dtype in dtypes:
         for t_dtype in dtypes:
             if s_dtype != t_dtype:
                 source += f"""
-extern "C" __global__ void cast_reference_{dtype_to_str(s_dtype)}_{dtype_to_str(t_dtype)}(int n, {dtype_to_cpp_type(s_dtype)}* input, {dtype_to_cpp_type(t_dtype)}* output)  {{
+extern "C" __global__ void cast_reference_{s_dtype.name}_{t_dtype.name}(int n, {s_dtype.cuda_dtype}* input, {t_dtype.cuda_dtype}* output)  {{
     cast_reference(n, input, output);
 }}
 """
@@ -75,19 +38,15 @@ extern "C" __global__ void cast_reference_{dtype_to_str(s_dtype)}_{dtype_to_str(
     return source
 
 
-def _cast(x, dtype):
+def _cast(x: Tensor, dtype: DType):
     if x.dtype == dtype:
         return x
 
-    requires_grad = (
-        x.requires_grad
-        and np.issubdtype(dtype, np.floating)
-        and np.issubdtype(x.dtype, np.floating)
-    )
+    requires_grad = x.requires_grad and x.dtype.is_floating and dtype.is_floating
 
     if x.device.type == "cuda":
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
-        func_name = f"cast_reference_{dtype_to_str(x.dtype)}_{dtype_to_str(dtype)}"
+        func_name = f"cast_reference_{x.dtype.name}_{dtype.name}"
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
             "cast.cu", func_name, x.device.index, _generate_cast_cu()
         )
@@ -114,7 +73,7 @@ def _cast(x, dtype):
             device=x.device,
             requires_grad=requires_grad,
         )
-        output_tensor.cpu_array = x.cpu_array.astype(dtype)
+        output_tensor.cpu_array = x._numpy().astype(dtype.np_dtype)
     else:
         raise InvalidDeviceError(x.device.type)
     if requires_grad:
@@ -124,10 +83,10 @@ def _cast(x, dtype):
 
 
 @DAGTracker.instance().register_backward_function("cast")
-def backward(output_grad, x, dtype):
+def backward(output_grad: Tensor, x: Tensor, dtype: DType):
     x_grad = Tensor(dtype=x.dtype, shape=x.shape, device=x.device)
     if output_grad.device.type == "cuda":
-        func_name = f"cast_reference_{dtype_to_str(dtype)}_{dtype_to_str(x.dtype)}"
+        func_name = f"cast_reference_{dtype.name}_{x.dtype.name}"
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
             "cast.cu", func_name, output_grad.device.index
@@ -143,7 +102,7 @@ def backward(output_grad, x, dtype):
             ],
         )
     elif output_grad.device.type == "cpu":
-        x_grad.cpu_array = output_grad.cpu_array.astype(x.dtype)
+        x_grad.cpu_array = output_grad._numpy().astype(x.dtype.np_dtype)
     else:
         raise InvalidDeviceError(output_grad.device.type)
     return [x_grad]

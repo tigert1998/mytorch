@@ -132,7 +132,7 @@ class DAGTracker:
         if shape_size(tensor.shape) != 1:
             raise RuntimeError("Backward tensor must be a scalar")
         tensor.grad = Tensor(
-            cpu_array=np.array(1, dtype=tensor.dtype).reshape(tensor.shape),
+            cpu_array=np.array(1, dtype=tensor.dtype.np_dtype).reshape(tensor.shape),
             device=tensor.device,
         )
         for initial_tensor in initial_tensors:

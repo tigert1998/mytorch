@@ -5,11 +5,16 @@ from mytorch.logger_manager import LoggerManager
 
 
 class Module:
+    _parameters: Dict[str, Parameter]
+    _buffers: Dict[str, Tensor]
+    _modules: Dict[str, Self]
+    training: bool
+
     def __init__(self):
-        self._parameters: Dict[str, Parameter] = {}
-        self._buffers: Dict[str, Tensor] = {}
-        self._modules: Dict[str, Self] = {}
-        self.training: bool = True
+        self._parameters = {}
+        self._buffers = {}
+        self._modules = {}
+        self.training = True
 
     def register_parameter(self, name, parameter: Optional[Parameter]):
         if parameter is not None:

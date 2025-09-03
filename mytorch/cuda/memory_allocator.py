@@ -1,15 +1,19 @@
 import numpy as np
+from typing import Dict, List
 
 from cuda.bindings import driver
 from mytorch.cuda.env import check_cuda_errors
 
 
 class SimpleCudaMemoryAllocator:
+    _pool: Dict[int, List[driver.CUdeviceptr]]
+    _ptr_mem_size: Dict[driver.CUdeviceptr, int]
+
     def __init__(self):
         self._pool = {}
         self._ptr_mem_size = {}
 
-    def allocate(self, size):
+    def allocate(self, size: int) -> driver.CUdeviceptr:
         if size <= 0:
             raise RuntimeError(
                 f"SimpleCudaMemoryAllocator cannot allocate {size} bytes"
@@ -25,7 +29,7 @@ class SimpleCudaMemoryAllocator:
         self._ptr_mem_size[ptr] = new_size
         return ptr
 
-    def deallocate(self, ptr):
+    def deallocate(self, ptr: driver.CUdeviceptr):
         size = self._ptr_mem_size.pop(ptr)
         if self._pool.get(size) is None:
             self._pool[size] = []
@@ -40,8 +44,8 @@ class SimpleCudaMemoryAllocator:
     def destroy(self):
         self.empty_cache()
 
-    def _internal_cuda_allocate(self, size):
+    def _internal_cuda_allocate(self, size: int) -> driver.CUdeviceptr:
         return check_cuda_errors(driver.cuMemAlloc(size))
 
-    def _internal_cuda_deallocate(self, ptr):
+    def _internal_cuda_deallocate(self, ptr: driver.CUdeviceptr):
         check_cuda_errors(driver.cuMemFree(ptr))

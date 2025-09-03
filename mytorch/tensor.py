@@ -1,8 +1,10 @@
 import numpy as np
-from typing import Optional
+import numpy.typing as npt
+from typing import Optional, Tuple, List
 
 from cuda.bindings import driver
 
+from mytorch.dtype import DType
 from mytorch.cuda.env import check_cuda_errors, CudaEnv
 from mytorch.autograd import DAGTracker
 
@@ -93,8 +95,8 @@ class CudaMemory:
     def __del__(self):
         self.destroy()
 
-    def read(self, shape, dtype) -> np.ndarray:
-        array = np.zeros(shape=shape, dtype=dtype)
+    def read(self, shape, dtype: DType) -> npt.NDArray:
+        array = np.zeros(shape=shape, dtype=dtype.np_dtype)
         check_cuda_errors(
             driver.cuMemcpyDtoH(
                 array.ctypes.data,
@@ -104,7 +106,7 @@ class CudaMemory:
         )
         return array
 
-    def write(self, array: np.ndarray):
+    def write(self, array: npt.NDArray):
         check_cuda_errors(
             driver.cuMemcpyHtoD(
                 self.ptr,
@@ -117,21 +119,29 @@ class CudaMemory:
 def tensor(data, dtype=None, device=None, requires_grad=False):
     data = np.array(data)
     if dtype is not None:
-        data = data.astype(dtype)
+        data = data.astype(dtype.np_dtype)
     return Tensor(
         cpu_array=data, dtype=dtype, device=device, requires_grad=requires_grad
     )
 
 
 class Tensor:
+    requires_grad: bool
+    grad: Optional["Tensor"]
+    cpu_array: Optional[npt.NDArray]
+    dtype: DType
+    shape: Tuple[int, ...]
+    device: Device
+    cuda_ptr: Optional[CudaMemory]
+
     def __init__(
         self,
-        cpu_array: np.ndarray = None,
-        dtype=None,
-        shape=None,
-        device=None,
-        tensor=None,
-        requires_grad=False,
+        cpu_array: Optional[npt.NDArray] = None,
+        dtype: Optional[DType] = None,
+        shape: Optional[List[int] | Tuple[int, ...]] = None,
+        device: Optional[str | Device] = None,
+        tensor: Optional["Tensor"] = None,
+        requires_grad: bool = False,
     ):
         self.requires_grad = requires_grad
         self.grad = None
@@ -144,6 +154,7 @@ class Tensor:
             self.device = tensor.device
             return
 
+        # set device
         self.device: Device = Device(device if device is not None else "cpu")
         if self.device.type not in [
             "cpu",
@@ -151,21 +162,32 @@ class Tensor:
         ]:
             raise InvalidDeviceError(self.device.type)
 
-        self.dtype = dtype
-        self.shape = tuple(shape) if shape is not None else None
+        # set dtype
+        if dtype is not None:
+            if not isinstance(dtype, DType):
+                raise InvalidDataTypeError(dtype)
+            else:
+                self.dtype = dtype
+                if cpu_array is not None and self.dtype.np_dtype != cpu_array.dtype:
+                    raise InvalidDataTypeError(self.dtype)
+        elif cpu_array is not None:
+            self.dtype = DType.from_np_dtype(cpu_array.dtype)
+
+        # set shape
+        if shape is not None:
+            self.shape = tuple(shape)
+            if cpu_array is not None and self.shape != cpu_array.shape:
+                raise InvalidShapeError(self.shape)
+        elif cpu_array is not None:
+            self.shape = cpu_array.shape
+
+        # set cpu/cuda memory
         self.cuda_ptr = None
         self.cpu_array = None
 
         cuda_context_manager = CudaEnv.instance().context_manager
 
         if cpu_array is not None:
-            if self.dtype is not None and self.dtype != cpu_array.dtype:
-                raise InvalidDataTypeError(self.dtype)
-            self.dtype = cpu_array.dtype
-            if self.shape is not None and self.shape != cpu_array.shape:
-                raise InvalidShapeError(self.shape)
-            self.shape = cpu_array.shape
-
             if self.device.type == "cpu":
                 self.cpu_array = cpu_array
             elif self.device.type == "cuda":
@@ -175,15 +197,13 @@ class Tensor:
                 self._write_cuda_memory(cpu_array)
 
         elif self.device.type == "cpu":
-            self.cpu_array = np.zeros(shape=self.shape, dtype=self.dtype)
+            self.cpu_array = np.zeros(shape=self.shape, dtype=self.dtype.np_dtype)
 
         elif self.device.type == "cuda":
             cuda_context_manager.set_device(self.device.index)
-            self.cuda_ptr = CudaMemory(
-                np.dtype(self.dtype).itemsize * shape_size(self.shape)
-            )
+            self.cuda_ptr = CudaMemory(self.dtype.itemsize() * shape_size(self.shape))
 
-        if self.requires_grad and not np.issubdtype(self.dtype, np.floating):
+        if self.requires_grad and not self.dtype.is_floating:
             raise RuntimeError(f"tensor of type {self.dtype} cannot require gradient")
 
     def _to_device(self, device):
@@ -215,9 +235,9 @@ class Tensor:
                 )
                 check_cuda_errors(
                     driver.cuMemcpyPeer(
-                        new_tensor.cuda_ptr.ptr,
+                        new_tensor._cuda_ptr(),
                         check_cuda_errors(driver.cuDeviceGet(new_tensor.device.index)),
-                        self.cuda_ptr.ptr,
+                        self._cuda_ptr(),
                         check_cuda_errors(driver.cuDeviceGet(self.device.index)),
                         np.dtype(self.dtype).itemsize * shape_size(self.shape),
                     )
@@ -236,11 +256,16 @@ class Tensor:
             dtype = self.dtype
         return self._to_device(device)._to_dtype(dtype)
 
-    def _read_cuda_memory(self) -> np.ndarray:
-        return self.cuda_ptr.read(self.shape, self.dtype)
+    def _read_cuda_memory(self) -> npt.NDArray:
+        if self.cuda_ptr is not None:
+            return self.cuda_ptr.read(self.shape, self.dtype)
+        raise RuntimeError(f"Cannot read null cuda_ptr of tensor")
 
-    def _write_cuda_memory(self, array: np.ndarray):
-        self.cuda_ptr.write(array)
+    def _write_cuda_memory(self, array: npt.NDArray):
+        if self.cuda_ptr is not None:
+            self.cuda_ptr.write(array)
+        else:
+            raise RuntimeError(f"Cannot write data to null cuda_ptr of tensor")
 
     def __repr__(self):
         if self.device.type == "cpu":
@@ -291,10 +316,12 @@ class Tensor:
 
         if isinstance(other, numbers.Number):
             other = Tensor(
-                cpu_array=np.array(other, dtype=self.dtype), device=self.device
+                cpu_array=np.array(other, dtype=self.dtype.np_dtype), device=self.device
             )
         elif isinstance(other, np.ndarray):
-            other = Tensor(cpu_array=other.astype(self.dtype), device=self.device)
+            other = Tensor(
+                cpu_array=other.astype(self.dtype.np_dtype), device=self.device
+            )
         elif isinstance(other, Tensor):
             pass
         else:
@@ -385,12 +412,22 @@ class Tensor:
     def detach(self):
         return Tensor(tensor=self, requires_grad=False)
 
-    def numpy(self) -> np.ndarray:
-        if self.requires_grad or not self.device.type == "cpu":
+    def numpy(self) -> npt.NDArray:
+        if self.requires_grad:
             raise RuntimeError(
-                "Tensor that requires gradient or not on CPU cannot be converted to NumPy array"
+                "Tensor that requires gradient cannot be converted to NumPy array"
             )
+        return self._numpy()
+
+    def _numpy(self) -> npt.NDArray:
+        if self.cpu_array is None:
+            raise RuntimeError("Tensor that not on CPU cannot be converted to numpy")
         return self.cpu_array
+
+    def _cuda_ptr(self):
+        if self.cuda_ptr is None:
+            raise RuntimeError("Tensor that not on GPU does not have CUDA memory")
+        return self.cuda_ptr.ptr
 
     def backward(self):
         instance = DAGTracker.instance()

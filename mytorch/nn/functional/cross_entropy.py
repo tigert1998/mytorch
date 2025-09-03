@@ -3,10 +3,11 @@ import numpy as np
 from mytorch.tensor import InvalidDataTypeError, InvalidDeviceError, Tensor
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
+from mytorch.dtype import int64, float16, float32
 
 
 def cross_entropy(input, target):
-    if target.dtype != np.int64:
+    if target.dtype != int64:
         raise InvalidDataTypeError(target.dtype)
     batch_size, num_classes = input.shape
 
@@ -20,9 +21,9 @@ def cross_entropy(input, target):
     tensor.fill_(0)
 
     if input.device.type == "cuda":
-        if input.dtype == np.float32:
+        if input.dtype == float32:
             func_name = "cross_entropy_reference_fp32"
-        elif input.dtype == np.float16:
+        elif input.dtype == float16:
             func_name = "cross_entropy_reference_fp16"
         else:
             raise InvalidDataTypeError(input.dtype)
@@ -69,9 +70,9 @@ def cross_entropy_backward(output_grad, input, target):
     )
 
     if input.device.type == "cuda":
-        if input.dtype == np.float32:
+        if input.dtype == float32:
             func_name = "cross_entropy_backward_reference_fp32"
-        elif input.dtype == np.float16:
+        elif input.dtype == float16:
             func_name = "cross_entropy_backward_reference_fp16"
         else:
             raise InvalidDataTypeError(input.dtype)

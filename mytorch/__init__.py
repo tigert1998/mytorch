@@ -7,3 +7,18 @@ from .ops.cat import cat
 from .ops.eq import eq
 from .ops.max import max
 from .ops.reduce_ops import sum, mean, var, std
+
+from .dtype import (
+    DType,
+    float16,
+    float32,
+    float64,
+    int8,
+    int16,
+    int32,
+    int64,
+    uint8,
+    uint16,
+    uint32,
+    uint64,
+)

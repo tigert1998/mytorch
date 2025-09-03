@@ -1,12 +1,22 @@
+from typing import Optional
+
 import numpy as np
 
 from mytorch.tensor import InvalidDataTypeError, InvalidDeviceError, Tensor
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
+from mytorch.dtype import float16, float32
 
 
 def _batch_norm_2d(
-    input, weight, bias, eps, training, momentum, running_mean, running_var
+    input: Tensor,
+    weight: Tensor,
+    bias: Optional[Tensor],
+    eps: float,
+    training: bool,
+    momentum: float,
+    running_mean: Optional[Tensor],
+    running_var: Optional[Tensor],
 ):
     requires_grad = input.requires_grad
     batch_size, channels, height, width = input.shape
@@ -30,9 +40,9 @@ def _batch_norm_2d(
     )
 
     if input.device.type == "cuda":
-        if input.dtype == np.float32:
+        if input.dtype == float32:
             func_name = "batch_norm2d_reference_fp32"
-        elif input.dtype == np.float16:
+        elif input.dtype == float16:
             func_name = "batch_norm2d_reference_fp16"
         else:
             raise InvalidDataTypeError(input.dtype)
@@ -63,11 +73,11 @@ def _batch_norm_2d(
                 input,
                 mean,
                 var,
-                np.array(eps, dtype=input.dtype),
+                np.array(eps, dtype=input.dtype.np_dtype),
                 weight,
                 bias,
                 np.array(training, dtype=np.int8),
-                np.array(momentum, dtype=input.dtype),
+                np.array(momentum, dtype=input.dtype.np_dtype),
                 running_mean,
                 running_var,
                 tensor,
@@ -107,9 +117,9 @@ def _batch_norm_2d_backward(output_grad, mean, var, input, weight, bias, eps):
         bias_grad = None
 
     if input.device.type == "cuda":
-        if input.dtype == np.float32:
+        if input.dtype == float32:
             func_name = "batch_norm2d_backward_reference_fp32"
-        elif input.dtype == np.float16:
+        elif input.dtype == float16:
             func_name = "batch_norm2d_backward_reference_fp16"
         else:
             raise InvalidDataTypeError(input.dtype)

@@ -9,6 +9,7 @@ from mytorch.tensor import (
 )
 from mytorch.cuda.env import CudaEnv
 from mytorch.ops.basic_ops import _cuda_bmm
+from mytorch.dtype import float16, float32
 
 
 def _im2col_input(input, weight, bias, stride=1, padding=0):
@@ -46,9 +47,9 @@ def _im2col_input(input, weight, bias, stride=1, padding=0):
             dtypes = [input.dtype, weight.dtype]
             dtypes += [bias.dtype] if bias is not None else []
             raise MismatchDataTypesError(dtypes)
-        if input.dtype == np.float32:
+        if input.dtype == float32:
             func_name = "im2col_input_reference_fp32"
-        elif input.dtype == np.float16:
+        elif input.dtype == float16:
             func_name = "im2col_input_reference_fp16"
         else:
             raise InvalidDataTypeError(input.dtype)
@@ -101,9 +102,9 @@ def _col2im_input(a_tensor, input, weight, bias, stride=1, padding=0):
             dtypes = [input.dtype, weight.dtype]
             dtypes += [bias.dtype] if bias is not None else []
             raise MismatchDataTypesError(dtypes)
-        if input.dtype == np.float32:
+        if input.dtype == float32:
             func_name = "col2im_input_reference_fp32"
-        elif input.dtype == np.float16:
+        elif input.dtype == float16:
             func_name = "col2im_input_reference_fp16"
         else:
             raise InvalidDataTypeError(input.dtype)
@@ -169,9 +170,9 @@ def _im2col_weight(input, weight, bias, stride=1, padding=0):
             dtype=input.dtype,
             device=input.device,
         )
-        if input.dtype == np.float32:
+        if input.dtype == float32:
             func_name = "im2col_weight_reference_fp32"
-        elif input.dtype == np.float16:
+        elif input.dtype == float16:
             func_name = "im2col_weight_reference_fp16"
         else:
             raise InvalidDataTypeError(input.dtype)
@@ -222,9 +223,9 @@ def _col2im_weight(b_tensor, input, weight, bias, stride=1, padding=0):
 
     if input.device.type == "cuda":
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
-        if input.dtype == np.float32:
+        if input.dtype == float32:
             func_name = "col2im_weight_reference_fp32"
-        elif input.dtype == np.float16:
+        elif input.dtype == float16:
             func_name = "col2im_weight_reference_fp16"
         else:
             raise InvalidDataTypeError(input.dtype)
