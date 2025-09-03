@@ -1,17 +1,17 @@
 import numpy as np
 import math
 
+import mytorch
 from mytorch.nn.module import Module
 from mytorch.nn.parameter import Parameter
 from mytorch.tensor import Tensor
 from mytorch.ops.basic_ops import mm, reshape, permute
-from mytorch.ops.broadcast_binary_ops import add
 from mytorch.nn.init import kaiming_uniform_, _calculate_fan_in_and_fan_out
 
 
 class Linear(Module):
     def __init__(
-        self, in_features, out_features, bias=True, device="cpu", dtype=np.float32
+        self, in_features, out_features, bias=True, device="cpu", dtype=mytorch.float32
     ):
         super().__init__()
 
@@ -21,11 +21,11 @@ class Linear(Module):
         self.register_parameter(
             "weight",
             Parameter(
-                Tensor(
-                    cpu_array=np.zeros(
+                mytorch.tensor(
+                    data=np.zeros(
                         (self.out_features, self.in_features),
-                        dtype=dtype,
                     ),
+                    dtype=dtype,
                     device=device,
                 )
             ),
@@ -35,11 +35,11 @@ class Linear(Module):
             self.register_parameter(
                 "bias",
                 Parameter(
-                    Tensor(
-                        cpu_array=np.zeros(
+                    mytorch.tensor(
+                        data=np.zeros(
                             (self.out_features,),
-                            dtype=dtype,
                         ),
+                        dtype=dtype,
                         device=device,
                     )
                 ),

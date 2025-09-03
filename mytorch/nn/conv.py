@@ -1,6 +1,7 @@
 import numpy as np
 import math
 
+import mytorch
 from mytorch.nn.module import Module
 from mytorch.nn.parameter import Parameter, Tensor
 from mytorch.nn.functional.conv import conv2d
@@ -17,7 +18,7 @@ class Conv2d(Module):
         padding=0,
         bias=True,
         device="cpu",
-        dtype=np.float32,
+        dtype=mytorch.float32,
     ):
         super().__init__()
 
@@ -32,12 +33,12 @@ class Conv2d(Module):
         self.register_parameter(
             "weight",
             Parameter(
-                Tensor(
-                    cpu_array=np.zeros(
+                mytorch.tensor(
+                    data=np.zeros(
                         (self.out_channels, self.in_channels, *self.kernel_size),
-                        dtype=dtype,
                     ),
                     device=device,
+                    dtype=dtype,
                 )
             ),
         )
@@ -45,11 +46,11 @@ class Conv2d(Module):
             self.register_parameter(
                 "bias",
                 Parameter(
-                    Tensor(
-                        cpu_array=np.zeros(
+                    mytorch.tensor(
+                        data=np.zeros(
                             (self.out_channels,),
-                            dtype=dtype,
                         ),
+                        dtype=dtype,
                         device=device,
                     )
                 ),
