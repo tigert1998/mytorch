@@ -21,6 +21,13 @@ class DType:
                 return v
         raise RuntimeError(f"There's no matching mytorch dtype for {np_dtype}")
 
+    @staticmethod
+    def from_name(name: str) -> "DType":
+        for _, v in globals().items():
+            if isinstance(v, DType) and v.name == name:
+                return v
+        raise RuntimeError(f"There's no matching mytorch dtype for {name}")
+
     def itemsize(self) -> int:
         return np.dtype(self.np_dtype).itemsize
 

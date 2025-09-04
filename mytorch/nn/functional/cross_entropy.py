@@ -1,22 +1,9 @@
 import numpy as np
-from functools import cache
 
 from mytorch.tensor import InvalidDataTypeError, InvalidDeviceError, Tensor
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
-from mytorch.dtype import int64, float16, float32, float64
-
-
-@cache
-def _generate_cross_entropy_cu():
-    dtypes = [float16, float32, float64]
-    return CudaEnv.instance().compiler.get_templated_source(
-        "cross_entropy.cu",
-        {
-            "cross_entropy_reference": [(dtype,) for dtype in dtypes],
-            "cross_entropy_backward_reference": [(dtype,) for dtype in dtypes],
-        },
-    )
+from mytorch.dtype import int64
 
 
 def cross_entropy(input, target):
@@ -37,10 +24,7 @@ def cross_entropy(input, target):
         func_name = f"cross_entropy_reference_{input.dtype.name}"
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "cross_entropy.cu",
-            func_name,
-            input.device.index,
-            _generate_cross_entropy_cu(),
+            "cross_entropy.cu", func_name, input.device.index
         )
         cuda_kernel.run(
             (32, 1, 1),
@@ -84,10 +68,7 @@ def cross_entropy_backward(output_grad, input, target):
         func_name = f"cross_entropy_backward_reference_{input.dtype.name}"
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "cross_entropy.cu",
-            func_name,
-            input.device.index,
-            _generate_cross_entropy_cu(),
+            "cross_entropy.cu", func_name, input.device.index
         )
         cuda_kernel.run(
             (32, 1, 1),

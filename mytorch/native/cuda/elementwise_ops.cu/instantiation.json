@@ -1,0 +1,31 @@
+{
+    "fill_reference": [
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "normal_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "uniform_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "relu_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "relu_backward_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ]
+}

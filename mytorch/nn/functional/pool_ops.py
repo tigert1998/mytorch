@@ -1,9 +1,8 @@
 import numpy as np
 
-from mytorch.tensor import Tensor, InvalidDataTypeError, InvalidDeviceError
+from mytorch.tensor import Tensor, InvalidDeviceError
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
-from mytorch.dtype import float16, float32
 
 
 def pool_operation_forward(name):
@@ -35,12 +34,7 @@ def pool_operation_forward(name):
             cuda_kernel_and_stream_manager = (
                 CudaEnv.instance().kernel_and_stream_manager
             )
-            if x.dtype == float32:
-                func_name = f"{name}_reference_fp32"
-            elif x.dtype == float16:
-                func_name = f"{name}_reference_fp16"
-            else:
-                raise InvalidDataTypeError(x.dtype)
+            func_name = f"{name}_reference_{x.dtype.name}"
             cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
                 "pool_ops.cu", func_name, x.device.index
             )
@@ -100,12 +94,7 @@ def pool_operation_backward(name):
         input_grad = Tensor(shape=input.shape, dtype=input.dtype, device=input.device)
 
         if input.device.type == "cuda":
-            if input.dtype == float32:
-                func_name = f"{name}_backward_reference_fp32"
-            elif input.dtype == float16:
-                func_name = f"{name}_backward_reference_fp16"
-            else:
-                raise InvalidDataTypeError(input.dtype)
+            func_name = f"{name}_backward_reference_{input.dtype.name}"
             cuda_kernel_and_stream_manager = (
                 CudaEnv.instance().kernel_and_stream_manager
             )

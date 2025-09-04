@@ -1,5 +1,3 @@
-from functools import cache
-
 import numpy as np
 
 from mytorch.tensor import (
@@ -10,34 +8,7 @@ from mytorch.tensor import (
     MismatchDataTypesError,
 )
 from mytorch.cuda.env import CudaEnv
-from mytorch.dtype import int8, int16, int32, int64, float16, float32, float64
-
-
-@cache
-def _generate_eq_cu():
-    source = """#include <cuda_fp16.h>
-
-#include <cuda/std/cstdint>
-#include "broadcast_utils.cuh"
-
-template <typename T>
-__global__ void eq_reference(int n, int x_shape_n, int* x_shape, int y_shape_n,
-                             int* y_shape, T* x, T* y, int8_t* output) {
-  int xid = blockIdx.x * blockDim.x + threadIdx.x;
-  if (xid >= n) return;
-  int2 pair = broadcast(xid, x_shape_n, x_shape, y_shape_n, y_shape);
-  output[xid] = (int8_t)(x[pair.x] == y[pair.y]);
-}
-"""
-    dtypes = [int8, int16, int32, int64, float16, float32, float64]
-    for dtype in dtypes:
-        source += f"""extern "C" __global__ void eq_reference_{dtype.name}(int n, int x_shape_n, int* x_shape,
-                                             int y_shape_n, int* y_shape,
-                                             {dtype.cuda_dtype}* x, {dtype.cuda_dtype}* y, int8_t* output) {{
-  eq_reference(n, x_shape_n, x_shape, y_shape_n, y_shape, x, y, output);
-}}
-"""
-    return source
+from mytorch.dtype import int8
 
 
 def eq(x: Tensor, y: Tensor):
@@ -48,7 +19,7 @@ def eq(x: Tensor, y: Tensor):
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         func_name = f"eq_reference_{x.dtype.name}"
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "eq.cu", func_name, x.device.index, _generate_eq_cu()
+            "eq.cu", func_name, x.device.index
         )
         output_tensor = Tensor(
             dtype=int8,

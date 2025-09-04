@@ -6,26 +6,10 @@ from mytorch.autograd import DAGTracker
 from mytorch.tensor import (
     Tensor,
     InvalidDeviceError,
-    InvalidDataTypeError,
     MismatchDataTypesError,
 )
 from mytorch.cuda.env import CudaEnv
 from mytorch.ops.basic_ops import _cuda_bmm
-from mytorch.dtype import float16, float32, float64
-
-
-@cache
-def _generate_im2col_cu():
-    dtypes = [float16, float32, float64]
-    return CudaEnv.instance().compiler.get_templated_source(
-        "im2col.cu",
-        {
-            "im2col_input_reference": [(dtype,) for dtype in dtypes],
-            "im2col_weight_reference": [(dtype,) for dtype in dtypes],
-            "col2im_input_reference": [(dtype,) for dtype in dtypes],
-            "col2im_weight_reference": [(dtype,) for dtype in dtypes],
-        },
-    )
 
 
 def _im2col_input(input, weight, bias, stride=1, padding=0):
@@ -65,7 +49,7 @@ def _im2col_input(input, weight, bias, stride=1, padding=0):
             raise MismatchDataTypesError(dtypes)
         func_name = f"im2col_input_reference_{input.dtype.name}"
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "im2col.cu", func_name, input.device.index, _generate_im2col_cu()
+            "im2col.cu", func_name, input.device.index
         )
         block_dim = [32, 32, 1]
         grid_dim = [32, 32, 1]
@@ -115,7 +99,7 @@ def _col2im_input(a_tensor, input, weight, bias, stride=1, padding=0):
             raise MismatchDataTypesError(dtypes)
         func_name = f"col2im_input_reference_{input.dtype.name}"
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "im2col.cu", func_name, input.device.index, _generate_im2col_cu()
+            "im2col.cu", func_name, input.device.index
         )
         block_dim = [32, 32, 1]
         grid_dim = [32, 32, 1]
@@ -178,7 +162,7 @@ def _im2col_weight(input, weight, bias, stride=1, padding=0):
         )
         func_name = f"im2col_weight_reference_{input.dtype.name}"
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "im2col.cu", func_name, input.device.index, _generate_im2col_cu()
+            "im2col.cu", func_name, input.device.index
         )
         block_dim = [32, 32, 1]
         grid_dim = [32, 32, 1]
@@ -226,7 +210,7 @@ def _col2im_weight(b_tensor, input, weight, bias, stride=1, padding=0):
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         func_name = f"col2im_weight_reference_{input.dtype.name}"
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "im2col.cu", func_name, input.device.index, _generate_im2col_cu()
+            "im2col.cu", func_name, input.device.index
         )
         block_dim = [32, 32, 1]
         grid_dim = [32, 32, 1]

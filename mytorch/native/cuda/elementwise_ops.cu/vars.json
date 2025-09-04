@@ -1,0 +1,23 @@
+[
+    {
+        "name": "fill",
+        "arg_type": "T alpha,",
+        "op": "input[xid] = alpha"
+    },
+    {
+        "name": "normal",
+        "arg_type": "uint64_t seed, T mean, T stddev,",
+        "op": "do { curandState_t state; curand_init(seed, xid, 0, &state); input[xid] = (T)curand_normal(&state) * stddev + mean; } while (0)"
+    },
+    {
+        "name": "uniform",
+        "arg_type": "uint64_t seed, T a, T b,",
+        "op": "do { curandState_t state; curand_init(seed, xid, 0, &state); input[xid] = (T)curand_uniform(&state) * (b - a) + a; } while (0)"
+    },
+    {
+        "name": "relu",
+        "arg_type": "",
+        "op": "output[xid] = fmax((T)0, input[xid])",
+        "op_backward": "input_grad[xid] = input[xid] > (T)0 ? output_grad[xid] : (T)0"
+    }
+]

@@ -9,7 +9,6 @@ from mytorch.tensor import (
     shape_size,
     CudaMemory,
 )
-from mytorch.dtype import float16, float32
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
 
@@ -46,12 +45,7 @@ def broadcast_binary_opeartion_forward(
         requires_grad = not no_grad_and_inplace and (x.requires_grad or y.requires_grad)
 
         if x.device.type == "cuda":
-            if x.dtype == float32:
-                func_name = f"{name}_reference_fp32"
-            elif x.dtype == float16:
-                func_name = f"{name}_reference_fp16"
-            else:
-                raise InvalidDataTypeError(x.dtype)
+            func_name = f"{name}_reference_{x.dtype.name}"
             cuda_kernel_and_stream_manager = (
                 CudaEnv.instance().kernel_and_stream_manager
             )
@@ -142,12 +136,7 @@ def broadcast_binary_opeartion_backward(name: str, backward_op_cpu):
         y_grad.fill_(0)
 
         if output_grad.device.type == "cuda":
-            if output_grad.dtype == float32:
-                func_name = f"{name}_backward_reference_fp32"
-            elif output_grad.dtype == float16:
-                func_name = f"{name}_backward_reference_fp16"
-            else:
-                raise InvalidDataTypeError(output_grad.dtype)
+            func_name = f"{name}_backward_reference_{output_grad.dtype.name}"
             cuda_kernel_and_stream_manager = (
                 CudaEnv.instance().kernel_and_stream_manager
             )

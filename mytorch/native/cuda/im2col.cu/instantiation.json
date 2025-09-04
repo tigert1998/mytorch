@@ -1,0 +1,22 @@
+{
+    "im2col_input_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "im2col_weight_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "col2im_input_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "col2im_weight_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ]
+}

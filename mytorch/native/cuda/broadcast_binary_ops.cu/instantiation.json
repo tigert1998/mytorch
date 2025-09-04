@@ -1,0 +1,77 @@
+{
+    "add_reference": [
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "add_backward_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "sub_reference": [
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "sub_backward_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "mul_reference": [
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "mul_backward_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "div_reference": [
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "div_backward_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "pow_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "pow_backward_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "copy_reference": [
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "float16",
+        "float32",
+        "float64"
+    ]
+}

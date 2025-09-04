@@ -11,25 +11,10 @@ from mytorch.tensor import (
     shape_size,
     Tensor,
 )
-from mytorch.dtype import int8, int16, int32, int64, float16, float32, float64
+from mytorch.dtype import float16, float32
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
 from mytorch.cuda.cublas_lt import CublasLt
-
-
-@cache
-def _generate_basic_ops_cu():
-    instantiation = {"permute_reference": [], "permute_backward_reference": []}
-
-    dtypes = [int8, int16, int32, int64, float16, float32, float64]
-    for dtype in dtypes:
-        instantiation["permute_reference"].append((dtype,))
-        if dtype.is_floating:
-            instantiation["permute_backward_reference"].append((dtype,))
-
-    return CudaEnv.instance().compiler.get_templated_source(
-        "basic_ops.cu", instantiation
-    )
 
 
 def _cuda_bmm(x: Tensor, y: Tensor, x_t: bool, y_t: bool, requires_grad: bool):
@@ -238,7 +223,9 @@ def permute(x: Tensor, dims: Tuple[int, ...]):
         func_name = f"permute_reference_{x.dtype.name}"
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "basic_ops.cu", func_name, x.device.index, source=_generate_basic_ops_cu()
+            "basic_ops.cu",
+            func_name,
+            x.device.index,
         )
         output_tensor = Tensor(
             dtype=x.dtype,

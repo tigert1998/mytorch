@@ -12,21 +12,7 @@ from mytorch.tensor import (
 )
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
-from mytorch.dtype import int64, float16, float32, float64, int8, int16, int32, int64
-
-
-@cache
-def _generate_max_cu():
-    dtypes = [int8, int16, int32, int64, float16, float32, float64]
-    return CudaEnv.instance().compiler.get_templated_source(
-        "max.cu",
-        {
-            "MaxReference": [(dtype,) for dtype in dtypes],
-            "max_backward_reference": [
-                (dtype,) for dtype in dtypes if dtype.is_floating
-            ],
-        },
-    )
+from mytorch.dtype import int64
 
 
 def max(tensor, dim=None, keepdim=False):
@@ -59,7 +45,7 @@ def max(tensor, dim=None, keepdim=False):
         func_name = f"MaxReference_{tensor.dtype.name}"
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "max.cu", func_name, tensor.device.index, _generate_max_cu()
+            "max.cu", func_name, tensor.device.index
         )
 
         tensor_shape_num_bytes = len(tensor.shape) * np.dtype(np.int32).itemsize
@@ -118,7 +104,7 @@ def max_backward(output_grad, indices_tensor, tensor, dim, keepdim):
         func_name = f"max_backward_reference_{tensor.dtype.name}"
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "max.cu", func_name, tensor.device.index, _generate_max_cu()
+            "max.cu", func_name, tensor.device.index
         )
 
         tensor_shape_num_bytes = len(tensor.shape) * np.dtype(np.int32).itemsize

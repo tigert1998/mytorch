@@ -1,0 +1,12 @@
+{
+    "batch_norm2d_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "batch_norm2d_backward_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ]
+}

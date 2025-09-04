@@ -1,0 +1,12 @@
+{
+    "sum_scale_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "sum_scale_backward_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ]
+}

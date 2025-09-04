@@ -1,0 +1,12 @@
+{
+    "max_pool2d_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "max_pool2d_backward_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ]
+}

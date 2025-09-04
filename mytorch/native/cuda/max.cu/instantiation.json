@@ -1,0 +1,16 @@
+{
+    "MaxReference": [
+        "int8",
+        "int16",
+        "int32",
+        "int64",
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "max_backward_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ]
+}

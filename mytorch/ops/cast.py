@@ -5,23 +5,7 @@ import numpy as np
 from mytorch.tensor import Tensor, shape_size, InvalidDeviceError
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
-from mytorch.dtype import DType, int8, int16, int32, int64, float16, float32, float64
-
-
-@cache
-def _generate_cast_cu():
-    dtypes = [int8, int16, int32, int64, float16, float32, float64]
-    return CudaEnv.instance().compiler.get_templated_source(
-        "cast.cu",
-        {
-            "cast_reference": [
-                (s_dtype, t_dtype)
-                for s_dtype in dtypes
-                for t_dtype in dtypes
-                if s_dtype != t_dtype
-            ]
-        },
-    )
+from mytorch.dtype import DType
 
 
 def _cast(x: Tensor, dtype: DType):
@@ -34,7 +18,7 @@ def _cast(x: Tensor, dtype: DType):
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         func_name = f"cast_reference_{x.dtype.name}_{dtype.name}"
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "cast.cu", func_name, x.device.index, _generate_cast_cu()
+            "cast.cu", func_name, x.device.index
         )
         output_tensor = Tensor(
             dtype=dtype,

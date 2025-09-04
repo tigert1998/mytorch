@@ -1,9 +1,8 @@
 import numpy as np
 
-from mytorch.tensor import InvalidDataTypeError, InvalidDeviceError, Tensor, shape_size
+from mytorch.tensor import InvalidDeviceError, Tensor, shape_size
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
-from mytorch.dtype import float16, float32
 
 
 def extract_arg_list(arg_types, args, reference_tensor: Tensor):
@@ -22,17 +21,14 @@ def elementwise_operation_forward(name, arg_types, no_grad_and_inplace, forward_
         arg_list = extract_arg_list(arg_types, args, x)
         requires_grad = not no_grad_and_inplace and x.requires_grad
         if x.device.type == "cuda":
-            if x.dtype == float32:
-                func_name = f"{name}_reference_fp32"
-            elif x.dtype == float16:
-                func_name = f"{name}_reference_fp16"
-            else:
-                raise InvalidDataTypeError(x.dtype)
+            func_name = f"{name}_reference_{x.dtype.name}"
             cuda_kernel_and_stream_manager = (
                 CudaEnv.instance().kernel_and_stream_manager
             )
             cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-                "elementwise_ops.cu", func_name, x.device.index
+                "elementwise_ops.cu",
+                func_name,
+                x.device.index,
             )
 
             if no_grad_and_inplace:
@@ -88,12 +84,7 @@ def elementwise_operation_backward(name, backward_op_cpu):
         x_grad.fill_(0)
 
         if output_grad.device.type == "cuda":
-            if output_grad.dtype == float32:
-                func_name = f"{name}_backward_reference_fp32"
-            elif output_grad.dtype == float16:
-                func_name = f"{name}_backward_reference_fp16"
-            else:
-                raise InvalidDataTypeError(output_grad.dtype)
+            func_name = f"{name}_backward_reference_{output_grad.dtype.name}"
             cuda_kernel_and_stream_manager = (
                 CudaEnv.instance().kernel_and_stream_manager
             )

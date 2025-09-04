@@ -1,0 +1,10 @@
+[
+    {
+        "name": "sum_scale",
+        "arg_type": "T scale,",
+        "op": "value += other_value",
+        "init": "(T)0",
+        "op_backward": "input_grad[idx] = output_grad[x] * scale",
+        "finalize": "(value * scale)"
+    }
+]

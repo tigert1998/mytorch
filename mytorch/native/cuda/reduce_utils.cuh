@@ -1,3 +1,6 @@
+#ifndef REDUCE_UTILS_CUH_
+#define REDUCE_UTILS_CUH_
+
 inline __device__ int restore_reduction(int shape_n, int* shape,
                                         int num_reduce_axis, int* reduce_axis,
                                         int outer_idx, int inner_idx) {
@@ -57,3 +60,5 @@ __global__ void ReduceTemplate(Args... args) {
     }
   }
 }
+
+#endif

@@ -1,22 +1,8 @@
-from functools import cache
-
 import numpy as np
 
 from mytorch.optim.optimizer import Optimizer
-from mytorch.tensor import Tensor, InvalidDataTypeError, InvalidDeviceError, shape_size
+from mytorch.tensor import Tensor, InvalidDeviceError, shape_size
 from mytorch.cuda.env import CudaEnv
-from mytorch.dtype import float16, float32, float64
-
-
-@cache
-def _generate_optim_cu():
-    dtypes = [float16, float32, float64]
-    return CudaEnv.instance().compiler.get_templated_source(
-        "optim.cu",
-        {
-            "sgd_reference": [(dtype,) for dtype in dtypes],
-        },
-    )
 
 
 class SGD(Optimizer):
@@ -59,7 +45,7 @@ class SGD(Optimizer):
                         CudaEnv.instance().kernel_and_stream_manager
                     )
                     cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-                        "optim.cu", func_name, param.device.index, _generate_optim_cu()
+                        "optim.cu", func_name, param.device.index
                     )
                     num_elements = shape_size(param.shape)
                     cuda_kernel.run(

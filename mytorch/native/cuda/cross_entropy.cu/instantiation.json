@@ -1,0 +1,12 @@
+{
+    "cross_entropy_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ],
+    "cross_entropy_backward_reference": [
+        "float16",
+        "float32",
+        "float64"
+    ]
+}

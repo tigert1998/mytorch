@@ -3,6 +3,7 @@ import numpy as np
 import os.path as osp
 from glob import glob
 import regex as re
+import json
 
 from cuda.bindings import driver, nvrtc, runtime
 
@@ -118,9 +119,39 @@ class CudaCompiler:
         )
         return major, minor
 
-    def get_templated_source(self, path: str, instantiation) -> str:
-        with open(osp.join(self.kernel_src_path, path)) as f:
-            content = f.read()
+    def _get_templated_source(self, path: str) -> str:
+        from mytorch.dtype import DType
+
+        path = osp.join(self.kernel_src_path, path)
+        vars_path = osp.join(path, "vars.json")
+        if osp.isfile(vars_path):
+            # concate into a source from *.template
+            content = ""
+            with open(vars_path) as f:
+                template_vars = json.loads(f.read())
+            for template_path in sorted(glob(osp.join(path, "*.template"))):
+                with open(template_path, "r") as f:
+                    template_content = f.read()
+                    for dic in template_vars:
+                        try:
+                            content += template_content.format(**dic)
+                        except:
+                            pass
+            hint_path = path
+        else:
+            hint_path = osp.join(path, "source.cu")
+            # read source from source.cu
+            with open(hint_path) as f:
+                content = f.read()
+
+        with open(osp.join(path, "instantiation.json")) as f:
+            dic = json.load(f)
+            instantiation = {
+                key: [
+                    list(map(DType.from_name, types.split(" "))) for types in dic[key]
+                ]
+                for key in dic.keys()
+            }
 
         pattern = r"""
             template\s*<[^>]+>\s* # template <typename T>
@@ -193,11 +224,11 @@ class CudaCompiler:
                 func_body = f"{function_name}(" + ", ".join(arg_names) + ");"
                 content += func_decl + "{\n  " + func_body + "\n}\n"
 
-        return content
+        return content, hint_path
 
-    def compile(self, path, device_id, source=None) -> driver.CUmodule:
-        if source is not None:
-            content = source
+    def compile(self, path, device_id) -> driver.CUmodule:
+        if osp.isdir(path):
+            content, path = self._get_templated_source(path)
         else:
             with open(path, "r") as f:
                 content = f.read()
@@ -354,7 +385,7 @@ class CudaKernelAndStreamManager:
             self._streams[device_id] = CudaStream(device_id, self._cuda_context_manager)
         return self._streams[device_id]
 
-    def get_kernel(self, cu_file_path, func_name, device_id, source=None):
+    def get_kernel(self, cu_file_path, func_name, device_id):
         stream = self.get_stream(device_id)
         stream.set_device()
         if self._modules.get(device_id, {}).get(cu_file_path) is None:
@@ -363,7 +394,6 @@ class CudaKernelAndStreamManager:
             self._modules[device_id][cu_file_path] = self._cuda_compiler.compile(
                 osp.join(osp.dirname(__file__), "../native/cuda", cu_file_path),
                 device_id,
-                source=source,
             )
         module = self._modules[device_id][cu_file_path]
         kernel = check_cuda_errors(

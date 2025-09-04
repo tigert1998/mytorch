@@ -1,0 +1,8 @@
+[
+    {
+        "name": "max_pool2d",
+        "op": "ans = fmax(ans, input_value)",
+        "init_value": "(-::cuda::std::numeric_limits<T>::max())",
+        "op_backward": "(input[input_idx] == output[output_idx] ? output_grad[output_idx] : (T)0)"
+    }
+]

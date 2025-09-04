@@ -1,3 +1,6 @@
+#ifndef BROADCAST_UTILS_CUH_
+#define BROADCAST_UTILS_CUH_
+
 __device__ int2 broadcast(int idx, int x_shape_n, int* x_shape, int y_shape_n,
                           int* y_shape) {
   int tmp = idx;
@@ -32,3 +35,5 @@ __device__ int2 broadcast(int idx, int x_shape_n, int* x_shape, int y_shape_n,
   }
   return {x, y};
 }
+
+#endif

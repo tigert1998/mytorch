@@ -1,0 +1,25 @@
+#include <cuda_fp16.h>
+
+#include <cuda/std/limits>
+
+#include "reduce_utils.cuh"
+
+template <typename T>                                                      
+__global__ void {name}_backward_reference(                                 
+    int n, T* input, {arg_type} int shape_n, int* shape,                  
+    int num_reduce_axis, int* reduce_axis, T* input_grad, T* output_grad) {{
+  int lane_id = threadIdx.x % warpSize;                                    
+  int warp_id = threadIdx.x / warpSize;                                    
+  const int num_warps = blockDim.x / warpSize;                             
+  int inner = 1;                                                           
+  for (int i = 0; i < num_reduce_axis; i++) inner *= shape[reduce_axis[i]];
+  int outer = n / inner;                                                   
+  for (int x = blockIdx.y; x < outer; x += gridDim.y) {{                    
+    for (int i = warp_id * warpSize + lane_id; i < inner;                  
+         i += num_warps * warpSize) {{                                      
+      int idx = restore_reduction(shape_n, shape, num_reduce_axis,         
+                                  reduce_axis, x, i);                      
+      {op_backward};                        
+    }}                                                                      
+  }}                                                                        
+}}

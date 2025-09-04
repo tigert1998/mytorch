@@ -1,0 +1,14 @@
+#include <cuda_fp16.h>
+#include <cuda/std/cstdint>
+
+template <typename T>                                                        
+__global__ void {name}_backward_reference(                                   
+    int n, T* input, {arg_type} T* input_grad, T* output_grad) {{            
+  int lane_id = threadIdx.x % warpSize;                                      
+  int warp_id = threadIdx.x / warpSize + blockIdx.x * blockDim.x / warpSize; 
+  int num_warps = gridDim.x * blockDim.x / warpSize;                         
+  for (int i = warp_id * warpSize; i < n; i += num_warps * warpSize) {{       
+    int xid = i + lane_id;                                                   
+    if (xid < n) {op_backward};                                              
+  }}                                                                          
+}}
