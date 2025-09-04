@@ -1,11 +1,24 @@
 from typing import Optional
 
 import numpy as np
+from functools import cache
 
 from mytorch.tensor import InvalidDataTypeError, InvalidDeviceError, Tensor
 from mytorch.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
-from mytorch.dtype import float16, float32
+from mytorch.dtype import float16, float32, float64
+
+
+@cache
+def _generate_batch_norm_cu():
+    dtypes = [float16, float32, float64]
+    return CudaEnv.instance().compiler.get_templated_source(
+        "batch_norm.cu",
+        {
+            "batch_norm2d_reference": [(dtype,) for dtype in dtypes],
+            "batch_norm2d_backward_reference": [(dtype,) for dtype in dtypes],
+        },
+    )
 
 
 def _batch_norm_2d(
@@ -40,15 +53,10 @@ def _batch_norm_2d(
     )
 
     if input.device.type == "cuda":
-        if input.dtype == float32:
-            func_name = "batch_norm2d_reference_fp32"
-        elif input.dtype == float16:
-            func_name = "batch_norm2d_reference_fp16"
-        else:
-            raise InvalidDataTypeError(input.dtype)
+        func_name = f"batch_norm2d_reference_{input.dtype.name}"
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "batch_norm.cu", func_name, input.device.index
+            "batch_norm.cu", func_name, input.device.index, _generate_batch_norm_cu()
         )
 
         mean = Tensor(
@@ -117,15 +125,10 @@ def _batch_norm_2d_backward(output_grad, mean, var, input, weight, bias, eps):
         bias_grad = None
 
     if input.device.type == "cuda":
-        if input.dtype == float32:
-            func_name = "batch_norm2d_backward_reference_fp32"
-        elif input.dtype == float16:
-            func_name = "batch_norm2d_backward_reference_fp16"
-        else:
-            raise InvalidDataTypeError(input.dtype)
+        func_name = f"batch_norm2d_backward_reference_{input.dtype.name}"
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "batch_norm.cu", func_name, input.device.index
+            "batch_norm.cu", func_name, input.device.index, _generate_batch_norm_cu()
         )
 
         mean_grad = Tensor(

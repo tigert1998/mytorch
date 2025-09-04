@@ -168,25 +168,6 @@ __global__ void batch_norm2d_reference(int batch_size, int channels, int height,
                                       weight, bias, output);
 }
 
-extern "C" __global__ void batch_norm2d_reference_fp32(
-    int batch_size, int channels, int height, int width, float* input,
-    float* mean, float* var, float eps, float* weight, float* bias,
-    int8_t training, float momentum, float* running_mean, float* running_var,
-    float* output) {
-  batch_norm2d_reference(batch_size, channels, height, width, input, mean, var,
-                         eps, weight, bias, training, momentum, running_mean,
-                         running_var, output);
-}
-
-extern "C" __global__ void batch_norm2d_reference_fp16(
-    int batch_size, int channels, int height, int width, half* input,
-    half* mean, half* var, half eps, half* weight, half* bias, int8_t training,
-    half momentum, half* running_mean, half* running_var, half* output) {
-  batch_norm2d_reference(batch_size, channels, height, width, input, mean, var,
-                         eps, weight, bias, training, momentum, running_mean,
-                         running_var, output);
-}
-
 template <typename T>
 __global__ void compute_mean_backward(int batch_size, int channels, int height,
                                       int width, T* input_grad, T* mean_grad) {
@@ -384,24 +365,4 @@ __global__ void batch_norm2d_backward_reference(
 
   compute_mean_backward<<<grid, block>>>(batch_size, channels, height, width,
                                          input_grad, mean_grad);
-}
-
-extern "C" __global__ void batch_norm2d_backward_reference_fp32(
-    int batch_size, int channels, int height, int width, float* input,
-    float* mean, float* var, float eps, float* weight, float* bias,
-    float* input_grad, float* mean_grad, float* var_grad, float* weight_grad,
-    float* bias_grad, float* output_grad) {
-  batch_norm2d_backward_reference(
-      batch_size, channels, height, width, input, mean, var, eps, weight, bias,
-      input_grad, mean_grad, var_grad, weight_grad, bias_grad, output_grad);
-}
-
-extern "C" __global__ void batch_norm2d_backward_reference_fp16(
-    int batch_size, int channels, int height, int width, half* input,
-    half* mean, half* var, half eps, half* weight, half* bias, half* input_grad,
-    half* mean_grad, half* var_grad, half* weight_grad, half* bias_grad,
-    half* output_grad) {
-  batch_norm2d_backward_reference(
-      batch_size, channels, height, width, input, mean, var, eps, weight, bias,
-      input_grad, mean_grad, var_grad, weight_grad, bias_grad, output_grad);
 }

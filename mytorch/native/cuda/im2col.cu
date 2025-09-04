@@ -52,24 +52,6 @@ __global__ void im2col_input_reference(int batch_size, int input_h, int input_w,
     }
 }
 
-extern "C" __global__ void im2col_input_reference_fp32(
-    int batch_size, int input_h, int input_w, int in_channels, int out_channels,
-    int kernel_size_h, int kernel_size_w, int stride_h, int stride_w,
-    int padding_h, int padding_w, float *input, float *bias, float *x) {
-  im2col_input_reference(batch_size, input_h, input_w, in_channels,
-                         out_channels, kernel_size_h, kernel_size_w, stride_h,
-                         stride_w, padding_h, padding_w, input, bias, x);
-}
-
-extern "C" __global__ void im2col_input_reference_fp16(
-    int batch_size, int input_h, int input_w, int in_channels, int out_channels,
-    int kernel_size_h, int kernel_size_w, int stride_h, int stride_w,
-    int padding_h, int padding_w, half *input, half *bias, half *x) {
-  im2col_input_reference(batch_size, input_h, input_w, in_channels,
-                         out_channels, kernel_size_h, kernel_size_w, stride_h,
-                         stride_w, padding_h, padding_w, input, bias, x);
-}
-
 template <typename T>
 __global__ void im2col_weight_reference(
     int batch_size, int input_h, int input_w, int in_channels, int out_channels,
@@ -104,24 +86,6 @@ __global__ void im2col_weight_reference(
         y[i * y_cols_padded + j] = weight_value;
       }
     }
-}
-
-extern "C" __global__ void im2col_weight_reference_fp32(
-    int batch_size, int input_h, int input_w, int in_channels, int out_channels,
-    int kernel_size_h, int kernel_size_w, int stride_h, int stride_w,
-    int padding_h, int padding_w, float *weight, float *bias, float *y) {
-  im2col_weight_reference(batch_size, input_h, input_w, in_channels,
-                          out_channels, kernel_size_h, kernel_size_w, stride_h,
-                          stride_w, padding_h, padding_w, weight, bias, y);
-}
-
-extern "C" __global__ void im2col_weight_reference_fp16(
-    int batch_size, int input_h, int input_w, int in_channels, int out_channels,
-    int kernel_size_h, int kernel_size_w, int stride_h, int stride_w,
-    int padding_h, int padding_w, half *weight, half *bias, half *y) {
-  im2col_weight_reference(batch_size, input_h, input_w, in_channels,
-                          out_channels, kernel_size_h, kernel_size_w, stride_h,
-                          stride_w, padding_h, padding_w, weight, bias, y);
 }
 
 template <typename T>
@@ -169,24 +133,6 @@ __global__ void col2im_input_reference(int batch_size, int input_h, int input_w,
     }
 }
 
-extern "C" __global__ void col2im_input_reference_fp32(
-    int batch_size, int input_h, int input_w, int in_channels, int out_channels,
-    int kernel_size_h, int kernel_size_w, int stride_h, int stride_w,
-    int padding_h, int padding_w, float *input, float *bias, float *x) {
-  col2im_input_reference(batch_size, input_h, input_w, in_channels,
-                         out_channels, kernel_size_h, kernel_size_w, stride_h,
-                         stride_w, padding_h, padding_w, input, bias, x);
-}
-
-extern "C" __global__ void col2im_input_reference_fp16(
-    int batch_size, int input_h, int input_w, int in_channels, int out_channels,
-    int kernel_size_h, int kernel_size_w, int stride_h, int stride_w,
-    int padding_h, int padding_w, half *input, half *bias, half *x) {
-  col2im_input_reference(batch_size, input_h, input_w, in_channels,
-                         out_channels, kernel_size_h, kernel_size_w, stride_h,
-                         stride_w, padding_h, padding_w, input, bias, x);
-}
-
 template <typename T>
 __global__ void col2im_weight_reference(
     int batch_size, int input_h, int input_w, int in_channels, int out_channels,
@@ -217,22 +163,4 @@ __global__ void col2im_weight_reference(
                kernel_size_w_idx] = y[i * y_cols_padded + j];
       }
     }
-}
-
-extern "C" __global__ void col2im_weight_reference_fp32(
-    int batch_size, int input_h, int input_w, int in_channels, int out_channels,
-    int kernel_size_h, int kernel_size_w, int stride_h, int stride_w,
-    int padding_h, int padding_w, float *weight, float *bias, float *y) {
-  col2im_weight_reference(batch_size, input_h, input_w, in_channels,
-                          out_channels, kernel_size_h, kernel_size_w, stride_h,
-                          stride_w, padding_h, padding_w, weight, bias, y);
-}
-
-extern "C" __global__ void col2im_weight_reference_fp16(
-    int batch_size, int input_h, int input_w, int in_channels, int out_channels,
-    int kernel_size_h, int kernel_size_w, int stride_h, int stride_w,
-    int padding_h, int padding_w, half *weight, half *bias, half *y) {
-  col2im_weight_reference(batch_size, input_h, input_w, in_channels,
-                          out_channels, kernel_size_h, kernel_size_w, stride_h,
-                          stride_w, padding_h, padding_w, weight, bias, y);
 }

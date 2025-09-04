@@ -1,3 +1,5 @@
+from functools import cache
+
 import numpy as np
 
 from mytorch.autograd import DAGTracker
@@ -9,7 +11,21 @@ from mytorch.tensor import (
 )
 from mytorch.cuda.env import CudaEnv
 from mytorch.ops.basic_ops import _cuda_bmm
-from mytorch.dtype import float16, float32
+from mytorch.dtype import float16, float32, float64
+
+
+@cache
+def _generate_im2col_cu():
+    dtypes = [float16, float32, float64]
+    return CudaEnv.instance().compiler.get_templated_source(
+        "im2col.cu",
+        {
+            "im2col_input_reference": [(dtype,) for dtype in dtypes],
+            "im2col_weight_reference": [(dtype,) for dtype in dtypes],
+            "col2im_input_reference": [(dtype,) for dtype in dtypes],
+            "col2im_weight_reference": [(dtype,) for dtype in dtypes],
+        },
+    )
 
 
 def _im2col_input(input, weight, bias, stride=1, padding=0):
@@ -47,14 +63,9 @@ def _im2col_input(input, weight, bias, stride=1, padding=0):
             dtypes = [input.dtype, weight.dtype]
             dtypes += [bias.dtype] if bias is not None else []
             raise MismatchDataTypesError(dtypes)
-        if input.dtype == float32:
-            func_name = "im2col_input_reference_fp32"
-        elif input.dtype == float16:
-            func_name = "im2col_input_reference_fp16"
-        else:
-            raise InvalidDataTypeError(input.dtype)
+        func_name = f"im2col_input_reference_{input.dtype.name}"
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "im2col.cu", func_name, input.device.index
+            "im2col.cu", func_name, input.device.index, _generate_im2col_cu()
         )
         block_dim = [32, 32, 1]
         grid_dim = [32, 32, 1]
@@ -102,14 +113,9 @@ def _col2im_input(a_tensor, input, weight, bias, stride=1, padding=0):
             dtypes = [input.dtype, weight.dtype]
             dtypes += [bias.dtype] if bias is not None else []
             raise MismatchDataTypesError(dtypes)
-        if input.dtype == float32:
-            func_name = "col2im_input_reference_fp32"
-        elif input.dtype == float16:
-            func_name = "col2im_input_reference_fp16"
-        else:
-            raise InvalidDataTypeError(input.dtype)
+        func_name = f"col2im_input_reference_{input.dtype.name}"
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "im2col.cu", func_name, input.device.index
+            "im2col.cu", func_name, input.device.index, _generate_im2col_cu()
         )
         block_dim = [32, 32, 1]
         grid_dim = [32, 32, 1]
@@ -170,14 +176,9 @@ def _im2col_weight(input, weight, bias, stride=1, padding=0):
             dtype=input.dtype,
             device=input.device,
         )
-        if input.dtype == float32:
-            func_name = "im2col_weight_reference_fp32"
-        elif input.dtype == float16:
-            func_name = "im2col_weight_reference_fp16"
-        else:
-            raise InvalidDataTypeError(input.dtype)
+        func_name = f"im2col_weight_reference_{input.dtype.name}"
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "im2col.cu", func_name, input.device.index
+            "im2col.cu", func_name, input.device.index, _generate_im2col_cu()
         )
         block_dim = [32, 32, 1]
         grid_dim = [32, 32, 1]
@@ -223,14 +224,9 @@ def _col2im_weight(b_tensor, input, weight, bias, stride=1, padding=0):
 
     if input.device.type == "cuda":
         cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
-        if input.dtype == float32:
-            func_name = "col2im_weight_reference_fp32"
-        elif input.dtype == float16:
-            func_name = "col2im_weight_reference_fp16"
-        else:
-            raise InvalidDataTypeError(input.dtype)
+        func_name = f"col2im_weight_reference_{input.dtype.name}"
         cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-            "im2col.cu", func_name, input.device.index
+            "im2col.cu", func_name, input.device.index, _generate_im2col_cu()
         )
         block_dim = [32, 32, 1]
         grid_dim = [32, 32, 1]
