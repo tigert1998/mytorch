@@ -17,23 +17,3 @@ __global__ void sgd_reference(bool is_first_time, int numel, T* param, T* grad,
   g = nesterov ? (g + momentum * momentum_buffer[xid]) : momentum_buffer[xid];
   param[xid] -= g * lr;
 }
-
-extern "C" __global__ void sgd_reference_fp32(bool is_first_time, int numel,
-                                              float* param, float* grad,
-                                              float* momentum_buffer, float lr,
-                                              float weight_decay,
-                                              float momentum, float dampening,
-                                              bool nesterov, bool maximize) {
-  sgd_reference(is_first_time, numel, param, grad, momentum_buffer, lr,
-                weight_decay, momentum, dampening, nesterov, maximize);
-}
-
-extern "C" __global__ void sgd_reference_fp16(bool is_first_time, int numel,
-                                              half* param, half* grad,
-                                              half* momentum_buffer, half lr,
-                                              half weight_decay, half momentum,
-                                              half dampening, bool nesterov,
-                                              bool maximize) {
-  sgd_reference(is_first_time, numel, param, grad, momentum_buffer, lr,
-                weight_decay, momentum, dampening, nesterov, maximize);
-}

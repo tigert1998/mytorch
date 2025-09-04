@@ -165,11 +165,11 @@ class CudaCompiler:
             function_name = match.group(3)
             params_str = match.group(4)
 
-            param_pattern = r"([\w\*&]+)\s+(\w+)"
+            param_pattern = r"(?:\s*,|^)([^,]+[&|*|\s+])(\w+)"
             params = re.findall(param_pattern, params_str)
 
-            arg_types = [p[0] for p in params]
-            arg_names = [p[1] for p in params]
+            arg_types = [p[0].strip() for p in params]
+            arg_names = [p[1].strip() for p in params]
 
             if function_name not in instantiation:
                 continue

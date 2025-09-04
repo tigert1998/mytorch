@@ -89,22 +89,6 @@ __global__ void MaxReference(int n, T* input, int shape_n, int* shape,
                                    reduce_axis, indices, output);
 }
 
-extern "C" __global__ void max_reference_fp32(int n, float* input, int shape_n,
-                                              int* shape, int num_reduce_axis,
-                                              int* reduce_axis,
-                                              int64_t* indices, float* output) {
-  MaxReference(n, input, shape_n, shape, num_reduce_axis, reduce_axis, indices,
-               output);
-}
-
-extern "C" __global__ void max_reference_fp16(int n, half* input, int shape_n,
-                                              int* shape, int num_reduce_axis,
-                                              int* reduce_axis,
-                                              int64_t* indices, half* output) {
-  MaxReference(n, input, shape_n, shape, num_reduce_axis, reduce_axis, indices,
-               output);
-}
-
 template <typename T>
 __global__ void max_backward_reference(int n, T* input, int shape_n, int* shape,
                                        int num_reduce_axis, int* reduce_axis,
@@ -126,18 +110,4 @@ __global__ void max_backward_reference(int n, T* input, int shape_n, int* shape,
       input_grad[idx] = i == indices[x] ? output_grad[x] : (T)0;
     }
   }
-}
-
-extern "C" __global__ void max_backward_reference_fp32(
-    int n, float* input, int shape_n, int* shape, int num_reduce_axis,
-    int* reduce_axis, int64_t* indices, float* input_grad, float* output_grad) {
-  max_backward_reference(n, input, shape_n, shape, num_reduce_axis, reduce_axis,
-                         indices, input_grad, output_grad);
-}
-
-extern "C" __global__ void max_backward_reference_fp16(
-    int n, half* input, int shape_n, int* shape, int num_reduce_axis,
-    int* reduce_axis, int64_t* indices, half* input_grad, half* output_grad) {
-  max_backward_reference(n, input, shape_n, shape, num_reduce_axis, reduce_axis,
-                         indices, input_grad, output_grad);
 }
