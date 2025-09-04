@@ -19,27 +19,17 @@ from mytorch.cuda.cublas_lt import CublasLt
 
 @cache
 def _generate_basic_ops_cu():
-    with open(
-        osp.join(CudaEnv.instance().compiler.cuda_src_path, "basic_ops.cu"), "r"
-    ) as f:
-        source = f.read()
+    instantiation = {"permute_reference": [], "permute_backward_reference": []}
 
     dtypes = [int8, int16, int32, int64, float16, float32, float64]
     for dtype in dtypes:
-        source += f"""
-extern "C" __global__ void permute_reference_{dtype.name}(int n, {dtype.cuda_dtype}* input, {dtype.cuda_dtype}* output, int shape_n,
-                                  int* shape, int* permute) {{
-    permute_reference(n, input, output, shape_n, shape, permute);
-}}
-"""
+        instantiation["permute_reference"].append((dtype,))
         if dtype.is_floating:
-            source += f"""
-extern "C" __global__ void permute_backward_reference_{dtype.name}(int n, int shape_n, int* shape, int* permute, {dtype.cuda_dtype}* input_grad, {dtype.cuda_dtype}* output_grad) {{
-    permute_backward_reference(n, shape_n, shape, permute, input_grad, output_grad);
-}}
-"""
+            instantiation["permute_backward_reference"].append((dtype,))
 
-    return source
+    return CudaEnv.instance().compiler.get_templated_source(
+        "basic_ops.cu", instantiation
+    )
 
 
 def _cuda_bmm(x: Tensor, y: Tensor, x_t: bool, y_t: bool, requires_grad: bool):

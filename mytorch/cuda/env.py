@@ -2,6 +2,7 @@ import os
 import numpy as np
 import os.path as osp
 from glob import glob
+import regex as re
 
 from cuda.bindings import driver, nvrtc, runtime
 
@@ -99,7 +100,7 @@ class CudaCompiler:
         if len(cudadevrt_paths) != 1:
             raise RuntimeError(f"cudadevrt path is vague: {cudadevrt_paths}")
         self.cudadevrt_path = cudadevrt_paths[0]
-        self.cuda_src_path = osp.join(osp.dirname(__file__), "../native/cuda")
+        self.kernel_src_path = osp.join(osp.dirname(__file__), "../native/cuda")
 
     def _arch(self, device_id):
         cu_device = check_cuda_errors(driver.cuDeviceGet(device_id))
@@ -117,6 +118,83 @@ class CudaCompiler:
         )
         return major, minor
 
+    def get_templated_source(self, path: str, instantiation) -> str:
+        with open(osp.join(self.kernel_src_path, path)) as f:
+            content = f.read()
+
+        pattern = r"""
+            template\s*<.*?>\s* # template <typename T>
+            (?:\w+__\s+)*       # __global__
+            \w+\s+              # void
+            \w+\s*              # function name
+            \(.*?\)             # argument types
+        """
+        template_funcs = re.findall(pattern, content, re.DOTALL | re.VERBOSE)
+        pattern = r"""
+            template\s*<([^>]+)>\s*    # capture template T
+            (?:\w+__\s+)*              # capture __global__
+            (\w+)\s+                   # capture return type
+            (\w+)\s*                   # capture funtion name
+            \(\s*([^)]*)\s*\)          # capture arguments
+        """
+
+        def replace_arg_types_with_template(arg_types, dtypes):
+            new_arg_types = []
+            for arg_type in arg_types:
+                is_match = False
+                for i, template_type in enumerate(template_types):
+                    pattern = f"(?:\\w|^){template_type}(?:\\W|$)"
+                    if re.match(pattern, arg_type):
+                        new_arg_types.append(
+                            arg_type.replace(
+                                template_type,
+                                dtypes[i].cuda_dtype,
+                            )
+                        )
+                        is_match = True
+                        break
+                if not is_match:
+                    new_arg_types.append(arg_type)
+            return new_arg_types
+
+        for template_func in template_funcs:
+            match = re.match(pattern, template_func, re.VERBOSE | re.DOTALL)
+            template_part = match.group(1)
+            template_types = re.findall(r"typename\s+(\w+)", template_part)
+            return_type = match.group(2)
+            function_name = match.group(3)
+            params_str = match.group(4)
+
+            param_pattern = r"([\w\*&]+)\s+(\w+)"
+            params = re.findall(param_pattern, params_str)
+
+            arg_types = [p[0] for p in params]
+            arg_names = [p[1] for p in params]
+
+            if function_name not in instantiation:
+                continue
+            if len(instantiation[function_name][0]) != len(template_types):
+                raise RuntimeError("")
+
+            for dtypes in instantiation[function_name]:
+                new_arg_types = replace_arg_types_with_template(arg_types, dtypes)
+                func_decl = (
+                    f'extern "C" __global__ {return_type} {function_name}'
+                    + "".join([f"_{dtype.name}" for dtype in dtypes])
+                    + "("
+                    + ", ".join(
+                        [
+                            f"{arg_type} {arg_name}"
+                            for arg_type, arg_name in zip(new_arg_types, arg_names)
+                        ]
+                    )
+                    + ")"
+                )
+                func_body = f"{function_name}(" + ", ".join(arg_names) + ");"
+                content += func_decl + "{\n  " + func_body + "\n}\n"
+
+        return content
+
     def compile(self, path, device_id, source=None) -> driver.CUmodule:
         if source is not None:
             content = source
@@ -131,7 +209,7 @@ class CudaCompiler:
         cuda_include_paths = [
             osp.join(cuda_path, "include"),
             osp.join(cuda_path, "include/cccl"),
-            self.cuda_src_path,
+            self.kernel_src_path,
         ]
         opts = [
             b"--fmad=false",

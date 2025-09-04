@@ -11,20 +11,18 @@ from mytorch.dtype import DType, int8, int16, int32, int64, float16, float32, fl
 
 @cache
 def _generate_cast_cu():
-    with open(osp.join(CudaEnv.instance().compiler.cuda_src_path, "cast.cu")) as f:
-        source = f.read()
-
     dtypes = [int8, int16, int32, int64, float16, float32, float64]
-    for s_dtype in dtypes:
-        for t_dtype in dtypes:
-            if s_dtype != t_dtype:
-                source += f"""
-extern "C" __global__ void cast_reference_{s_dtype.name}_{t_dtype.name}(int n, {s_dtype.cuda_dtype}* input, {t_dtype.cuda_dtype}* output)  {{
-    cast_reference(n, input, output);
-}}
-"""
-
-    return source
+    return CudaEnv.instance().compiler.get_templated_source(
+        "cast.cu",
+        {
+            "cast_reference": [
+                (s_dtype, t_dtype)
+                for s_dtype in dtypes
+                for t_dtype in dtypes
+                if s_dtype != t_dtype
+            ]
+        },
+    )
 
 
 def _cast(x: Tensor, dtype: DType):
