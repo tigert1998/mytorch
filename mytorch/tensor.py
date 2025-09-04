@@ -272,7 +272,8 @@ class Tensor:
             array = self.cpu_array
         elif self.device.type == "cuda":
             array = self._read_cuda_memory()
-        return f'tensor({repr(array)}, device="{self.device}")'
+        array_str = np.array2string(array, threshold=50, separator=", ")
+        return f'tensor({array_str}, dtype={self.dtype}, device="{self.device}")'
 
     def fill_(self, value):
         from mytorch.ops.elementwise_ops import _fill

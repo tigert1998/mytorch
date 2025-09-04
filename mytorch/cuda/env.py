@@ -205,7 +205,7 @@ class CudaCompiler:
             if function_name not in instantiation:
                 continue
             if len(instantiation[function_name][0]) != len(template_types):
-                raise RuntimeError("")
+                raise RuntimeError("Template variables number mismatch")
 
             for dtypes in instantiation[function_name]:
                 new_arg_types = replace_arg_types_with_template(arg_types, dtypes)
