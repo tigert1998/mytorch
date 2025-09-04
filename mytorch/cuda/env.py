@@ -123,7 +123,7 @@ class CudaCompiler:
             content = f.read()
 
         pattern = r"""
-            template\s*<.*?>\s* # template <typename T>
+            template\s*<[^>]+>\s* # template <typename T>
             (?:\w+__\s+)*       # __global__
             \w+\s+              # void
             \w+\s*              # function name
