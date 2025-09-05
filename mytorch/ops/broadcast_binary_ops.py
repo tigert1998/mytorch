@@ -1,264 +1,113 @@
-import numpy as np
-from typing import Tuple, List, Optional
-
 from mytorch.tensor import (
-    InvalidDataTypeError,
-    InvalidDeviceError,
     MismatchDevicesError,
     Tensor,
-    shape_size,
-    CudaMemory,
 )
-from mytorch.backends.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
+from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
-def _calculate_broadcast_shape(
-    x_shape: tuple[int, ...], y_shape: tuple[int, ...]
-) -> Tuple[int, ...]:
-    error_msg = f"Invalid broadcast shape: {x_shape} and {y_shape}"
-    if len(x_shape) < len(y_shape):
-        x_shape = (1,) * (len(y_shape) - len(x_shape)) + x_shape
-    elif len(x_shape) > len(y_shape):
-        y_shape = (1,) * (len(x_shape) - len(y_shape)) + y_shape
-    ans = []
-    for i, j in zip(x_shape, y_shape):
-        if not (i == j or i == 1 or j == 1):
-            raise RuntimeError(error_msg)
-        ans.append(max(i, j))
-    return tuple(ans)
+def add(x: Tensor, y: Tensor, alpha) -> Tensor:
+    if x.device != y.device:
+        raise MismatchDevicesError([x.device, y.device])
+
+    func = BackendDispatcher.instance().dispatch(x.device.type, "add")
+    z = func(x, y, alpha)
+    z.requires_grad = x.requires_grad or y.requires_grad
+
+    if z.requires_grad:
+        DAGTracker.instance().add_node("add", [x, y, alpha], [z])
+
+    return z
 
 
-def broadcast_binary_opeartion_forward(
-    name: str, arg_types, no_grad_and_inplace: bool, forward_op_cpu
-):
-    def forward(x: Tensor, y: Tensor, *args) -> Optional[Tensor]:
-        from mytorch.ops.elementwise_ops import extract_arg_list
-
-        if x.device != y.device:
-            raise MismatchDevicesError([x.device, y.device])
-
-        arg_list = extract_arg_list(arg_types, args, x)
-
-        shape = _calculate_broadcast_shape(x.shape, y.shape)
-
-        requires_grad = not no_grad_and_inplace and (x.requires_grad or y.requires_grad)
-
-        if x.device.type == "cuda":
-            func_name = f"{name}_reference_{x.dtype.name}"
-            cuda_kernel_and_stream_manager = (
-                CudaEnv.instance().kernel_and_stream_manager
-            )
-            cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-                "broadcast_binary_ops.cu", func_name, x.device.index
-            )
-
-            x_shape_num_bytes = len(x.shape) * np.dtype(np.int32).itemsize
-            y_shape_num_bytes = len(y.shape) * np.dtype(np.int32).itemsize
-            if x_shape_num_bytes + y_shape_num_bytes > 0:
-                cuda_mem = CudaMemory(x_shape_num_bytes + y_shape_num_bytes)
-                cuda_mem.write(np.array(list(x.shape) + list(y.shape), dtype=np.int32))
-                x_shape_ptr = int(cuda_mem.ptr)
-                y_shape_ptr = x_shape_ptr + x_shape_num_bytes
-            else:
-                x_shape_ptr = y_shape_ptr = 0
-
-            num_elements = shape_size(shape)
-
-            if no_grad_and_inplace:
-                null_ptr = np.array(0, np.uint64)
-            else:
-                output_tensor = Tensor(
-                    dtype=x.dtype,
-                    shape=shape,
-                    device=x.device,
-                    requires_grad=requires_grad,
-                )
-
-            cuda_kernel.run(
-                ((num_elements + 255) // 256, 1, 1),
-                (256, 1, 1),
-                [
-                    np.array(num_elements, dtype=np.int32),
-                    np.array(len(x.shape), dtype=np.int32),
-                    np.array(x_shape_ptr, dtype=np.uint64),
-                    np.array(len(y.shape), dtype=np.int32),
-                    np.array(y_shape_ptr, dtype=np.uint64),
-                    x,
-                    y,
-                    *arg_list,
-                    null_ptr if no_grad_and_inplace else output_tensor,
-                ],
-            )
-
-        elif x.device.type == "cpu":
-            if no_grad_and_inplace:
-                forward_op_cpu(x, y, *arg_list)
-            else:
-                output_tensor = Tensor(
-                    dtype=x.dtype,
-                    shape=shape,
-                    device=x.device,
-                    requires_grad=requires_grad,
-                )
-                output_tensor.cpu_array = forward_op_cpu(x, y, *arg_list)
-
-        else:
-            raise InvalidDeviceError(x.device.type)
-
-        if requires_grad:
-            DAGTracker.instance().add_node(name, [x, y, *arg_list], [output_tensor])
-
-        if not no_grad_and_inplace:
-            return output_tensor
-
-        return None
-
-    return forward
+@DAGTracker.instance().register_backward_function("add")
+def add_backward(output_tensor, x: Tensor, y: Tensor, alpha) -> Tensor:
+    func = BackendDispatcher.instance().dispatch(x.device.type, "add_backward")
+    return func(output_tensor, x, y, alpha)
 
 
-def broadcast_binary_opeartion_backward(name: str, backward_op_cpu):
-    def tile_tensor(x: Tensor, output_grad: Tensor) -> Tuple[np.ndarray, List[int]]:
-        x_shape = (1,) * (len(output_grad.shape) - len(x.shape)) + x.shape
-        x_axis = [i for i in range(len(x_shape)) if x_shape[i] < output_grad.shape[i]]
-        x_tile_reps = [
-            output_grad.shape[i] if x_shape[i] < output_grad.shape[i] else 1
-            for i in range(len(x_shape))
-        ]
-        x_tile = np.tile(x._numpy(), x_tile_reps)
-        return x_tile, x_axis
+def sub(x: Tensor, y: Tensor, alpha) -> Tensor:
+    if x.device != y.device:
+        raise MismatchDevicesError([x.device, y.device])
 
-    @DAGTracker.instance().register_backward_function(name)
-    def backward(output_grad: Tensor, x: Tensor, y: Tensor, *args):
-        x_grad = Tensor(dtype=x.dtype, shape=x.shape, device=x.device)
-        x_grad.fill_(0)
-        y_grad = Tensor(dtype=y.dtype, shape=y.shape, device=y.device)
-        y_grad.fill_(0)
+    func = BackendDispatcher.instance().dispatch(x.device.type, "sub")
+    z = func(x, y, alpha)
+    z.requires_grad = x.requires_grad or y.requires_grad
 
-        if output_grad.device.type == "cuda":
-            func_name = f"{name}_backward_reference_{output_grad.dtype.name}"
-            cuda_kernel_and_stream_manager = (
-                CudaEnv.instance().kernel_and_stream_manager
-            )
-            cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-                "broadcast_binary_ops.cu", func_name, output_grad.device.index
-            )
+    if z.requires_grad:
+        DAGTracker.instance().add_node("sub", [x, y, alpha], [z])
 
-            x_shape_num_bytes = len(x.shape) * np.dtype(np.int32).itemsize
-            y_shape_num_bytes = len(y.shape) * np.dtype(np.int32).itemsize
-            if x_shape_num_bytes + y_shape_num_bytes > 0:
-                cuda_mem = CudaMemory(x_shape_num_bytes + y_shape_num_bytes)
-                cuda_mem.write(np.array(list(x.shape) + list(y.shape), dtype=np.int32))
-                x_shape_ptr = int(cuda_mem.ptr)
-                y_shape_ptr = x_shape_ptr + x_shape_num_bytes
-            else:
-                x_shape_ptr = y_shape_ptr = 0
-
-            num_elements = shape_size(output_grad.shape)
-            cuda_kernel.run(
-                ((num_elements + 255) // 256, 1, 1),
-                (256, 1, 1),
-                [
-                    np.array(num_elements, dtype=np.int32),
-                    np.array(len(x.shape), dtype=np.int32),
-                    np.array(x_shape_ptr, dtype=np.uint64),
-                    np.array(len(y.shape), dtype=np.int32),
-                    np.array(y_shape_ptr, dtype=np.uint64),
-                    x,
-                    y,
-                    *args,
-                    x_grad,
-                    y_grad,
-                    output_grad,
-                ],
-            )
-
-        elif output_grad.device.type == "cpu":
-            x_tile, x_axis = tile_tensor(x, output_grad)
-            y_tile, y_axis = tile_tensor(y, output_grad)
-            x_grad_cpu_array, y_grad_cpu_array = backward_op_cpu(
-                x_tile, y_tile, *args, output_grad
-            )
-            x_grad.cpu_array = x_grad_cpu_array.sum(axis=tuple(x_axis)).reshape(x.shape)
-            y_grad.cpu_array = y_grad_cpu_array.sum(axis=tuple(y_axis)).reshape(y.shape)
-        else:
-            raise InvalidDeviceError(output_grad.device.type)
-
-        return [x_grad, y_grad]
-
-    return backward
+    return z
 
 
-def _add_forward_op_cpu(x, y, alpha):
-    return x.cpu_array + y.cpu_array * alpha
+@DAGTracker.instance().register_backward_function("sub")
+def sub_backward(output_tensor, x: Tensor, y: Tensor, alpha) -> Tensor:
+    func = BackendDispatcher.instance().dispatch(x.device.type, "sub_backward")
+    return func(output_tensor, x, y, alpha)
 
 
-def _add_backward_op_cpu(x, y, alpha, output_grad):
-    return output_grad.cpu_array, output_grad.cpu_array * alpha
+def mul(x: Tensor, y: Tensor) -> Tensor:
+    if x.device != y.device:
+        raise MismatchDevicesError([x.device, y.device])
+
+    func = BackendDispatcher.instance().dispatch(x.device.type, "mul")
+    z = func(x, y)
+    z.requires_grad = x.requires_grad or y.requires_grad
+
+    if z.requires_grad:
+        DAGTracker.instance().add_node("mul", [x, y], [z])
+
+    return z
 
 
-add = broadcast_binary_opeartion_forward(
-    "add", [{"dtype": "default"}], False, _add_forward_op_cpu
-)
-add_backward = broadcast_binary_opeartion_backward("add", _add_backward_op_cpu)
+@DAGTracker.instance().register_backward_function("mul")
+def mul_backward(output_tensor, x: Tensor, y: Tensor) -> Tensor:
+    func = BackendDispatcher.instance().dispatch(x.device.type, "mul_backward")
+    return func(output_tensor, x, y)
 
 
-def _sub_forward_op_cpu(x, y, alpha):
-    return x.cpu_array - y.cpu_array * alpha
+def div(x: Tensor, y: Tensor) -> Tensor:
+    if x.device != y.device:
+        raise MismatchDevicesError([x.device, y.device])
+
+    func = BackendDispatcher.instance().dispatch(x.device.type, "div")
+    z = func(x, y)
+    z.requires_grad = x.requires_grad or y.requires_grad
+
+    if z.requires_grad:
+        DAGTracker.instance().add_node("div", [x, y], [z])
+
+    return z
 
 
-def _sub_backward_op_cpu(x, y, alpha, output_grad):
-    return output_grad.cpu_array, -output_grad.cpu_array * alpha
+@DAGTracker.instance().register_backward_function("div")
+def div_backward(output_tensor, x: Tensor, y: Tensor) -> Tensor:
+    func = BackendDispatcher.instance().dispatch(x.device.type, "div_backward")
+    return func(output_tensor, x, y)
 
 
-sub = broadcast_binary_opeartion_forward(
-    "sub", [{"dtype": "default"}], False, _sub_forward_op_cpu
-)
-sub_backward = broadcast_binary_opeartion_backward("sub", _sub_backward_op_cpu)
+def pow(x: Tensor, y: Tensor) -> Tensor:
+    if x.device != y.device:
+        raise MismatchDevicesError([x.device, y.device])
+
+    func = BackendDispatcher.instance().dispatch(x.device.type, "pow")
+    z = func(x, y)
+    z.requires_grad = x.requires_grad or y.requires_grad
+
+    if z.requires_grad:
+        DAGTracker.instance().add_node("pow", [x, y], [z])
+
+    return z
 
 
-def _mul_forward_op_cpu(x, y):
-    return x.cpu_array * y.cpu_array
+@DAGTracker.instance().register_backward_function("pow")
+def pow_backward(output_tensor, x: Tensor, y: Tensor) -> Tensor:
+    func = BackendDispatcher.instance().dispatch(x.device.type, "pow_backward")
+    return func(output_tensor, x, y)
 
 
-def _mul_backward_op_cpu(x, y, output_grad):
-    return y * output_grad.cpu_array, x * output_grad.cpu_array
-
-
-mul = broadcast_binary_opeartion_forward("mul", [], False, _mul_forward_op_cpu)
-mul_backward = broadcast_binary_opeartion_backward("mul", _mul_backward_op_cpu)
-
-
-def _div_forward_op_cpu(x, y):
-    return x.cpu_array / y.cpu_array
-
-
-def _div_backward_op_cpu(x, y, output_grad):
-    x_grad_cpu_array = 1 / y * output_grad.cpu_array
-    y_grad_cpu_array = -x / (y**2) * output_grad.cpu_array
-    return x_grad_cpu_array, y_grad_cpu_array
-
-
-div = broadcast_binary_opeartion_forward("div", [], False, _div_forward_op_cpu)
-div_backward = broadcast_binary_opeartion_backward("div", _div_backward_op_cpu)
-
-
-def _pow_forward_op_cpu(x, y):
-    return np.power(x.cpu_array, y.cpu_array)
-
-
-def _pow_backward_op_cpu(x, y, output_grad):
-    x_grad_cpu_array = y * np.power(x, y - 1) * output_grad.cpu_array
-    y_grad_cpu_array = np.power(x, y) * np.log(x) * output_grad.cpu_array
-    return x_grad_cpu_array, y_grad_cpu_array
-
-
-pow = broadcast_binary_opeartion_forward("pow", [], False, _pow_forward_op_cpu)
-pow_backward = broadcast_binary_opeartion_backward("pow", _pow_backward_op_cpu)
-
-
-def _copy_forward_op_cpu(x, y):
-    np.copyto(x.cpu_array, y.cpu_array)
-
-
-_copy = broadcast_binary_opeartion_forward("copy", [], True, _copy_forward_op_cpu)
+def _copy(x: Tensor, y: Tensor) -> Tensor:
+    if x.device != y.device:
+        raise MismatchDevicesError([x.device, y.device])
+    func = BackendDispatcher.instance().dispatch(x.device.type, "copy")
+    func(x, y)

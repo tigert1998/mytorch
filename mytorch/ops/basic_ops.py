@@ -81,48 +81,15 @@ def permute_backward(output_grad: Tensor, x: Tensor, dims: Tuple[int, ...]):
     return [input_grad]
 
 
-def _calculate_reshaped_shape(
-    original_shape: Tuple[int, ...], target_shape: Tuple[int, ...]
-):
-    total_elements = shape_size(original_shape)
-    target_elements = 1
-    unknown_dim_index = None
-
-    for i, dim in enumerate(target_shape):
-        if dim == -1:
-            if unknown_dim_index is not None:
-                raise ValueError("can only specify one unknown dimension")
-            unknown_dim_index = i
-        else:
-            if dim <= 0:
-                raise ValueError("negative dimensions not allowed except -1")
-            target_elements *= dim
-
-    if unknown_dim_index is not None:
-        if total_elements % target_elements != 0:
-            raise ValueError(
-                f"cannot reshape array of size {total_elements} into shape {target_shape}"
-            )
-        unknown_dim = total_elements // target_elements
-        target_shape_ls = list(target_shape)
-        target_shape_ls[unknown_dim_index] = unknown_dim
-        return tuple(target_shape_ls)
-    else:
-        if total_elements != target_elements:
-            raise ValueError(
-                f"cannot reshape array of size {total_elements} into shape {target_shape}"
-            )
-        return target_shape
-
-
 def reshape(x: Tensor, shape: Tuple[int, ...]) -> Tensor:
-    new_shape = _calculate_reshaped_shape(x.shape, shape)
     func = BackendDispatcher.instance().dispatch(x.device.type, "reshape")
-    output_tensor = func(x, new_shape)
+    output_tensor = func(x, shape)
     output_tensor.requires_grad = x.requires_grad
 
     if output_tensor.requires_grad:
-        DAGTracker.instance().add_node("reshape", [x, new_shape], [output_tensor])
+        DAGTracker.instance().add_node(
+            "reshape", [x, output_tensor.shape], [output_tensor]
+        )
 
     return output_tensor
 
