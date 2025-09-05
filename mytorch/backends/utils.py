@@ -1,5 +1,7 @@
 from typing import Tuple
 
+import numpy as np
+
 
 def calculate_broadcast_shape(
     x_shape: tuple[int, ...], y_shape: tuple[int, ...]
@@ -15,6 +17,16 @@ def calculate_broadcast_shape(
             raise RuntimeError(error_msg)
         ans.append(max(i, j))
     return tuple(ans)
+
+
+def calculate_reduce_shape(shape, axis, keepdim):
+    if not np.all([0 <= i and i < len(shape) and isinstance(i, int) for i in axis]):
+        raise RuntimeError(f"Reduce axis is invalid: {axis}")
+    if keepdim:
+        shape = [(1 if i in axis else shape_i) for i, shape_i in enumerate(shape)]
+    else:
+        shape = [shape_i for i, shape_i in enumerate(shape) if i not in axis]
+    return tuple(shape)
 
 
 def calculate_reshaped_shape(
