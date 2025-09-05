@@ -17,3 +17,5 @@ from .broadcast_binary_ops import (
 from .cast import cast
 from .cat import cat, cat_backward
 from .eq import eq
+from .elementwise_ops import _fill, _uniform, _normal, _relu, _relu_backward
+from .reduce_ops import _sum_scale, _sum_scale_backward

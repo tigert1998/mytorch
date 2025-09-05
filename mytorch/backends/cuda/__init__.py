@@ -18,3 +18,5 @@ from .ops.broadcast_binary_ops import (
 from .ops.cast import cast
 from .ops.max import max
 from .ops.eq import eq
+from .ops.elementwise_ops import _fill, _uniform, _normal, _relu, _relu_backward
+from .ops.reduce_ops import _sum_scale, _sum_scale_backward
