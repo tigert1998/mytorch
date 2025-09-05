@@ -353,7 +353,6 @@ class CudaKernel:
                 0,
             )
         )
-        self.stream.sync()
         if timer:
             return cuda_timer.end()
 
