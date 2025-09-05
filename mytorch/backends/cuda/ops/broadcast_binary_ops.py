@@ -1,5 +1,4 @@
 import numpy as np
-import numpy.typing as npt
 
 from mytorch.backends.cuda.env import CudaEnv
 from mytorch.backends.backend_dispatcher import BackendDispatcher

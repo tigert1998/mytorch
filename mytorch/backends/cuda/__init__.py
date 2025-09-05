@@ -15,3 +15,4 @@ from .ops.broadcast_binary_ops import (
     pow_backward,
     copy,
 )
+from .ops.cast import cast
