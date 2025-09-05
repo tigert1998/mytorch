@@ -9,17 +9,13 @@ class BackendDispatcher:
     def instance(cls):
         if cls._instance is None:
             cls._instance = BackendDispatcher()
-        cls._instance._register_modules()
+            cls._instance._register_modules()
         return cls._instance
 
     def __init__(self):
         self._backend_impls = defaultdict(dict)
-        self._modules_registered = False
 
     def _register_modules(self):
-        if self._modules_registered:
-            return
-        self._modules_registered = True
         import mytorch.backends.cpu
         import mytorch.backends.cuda
 

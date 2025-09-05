@@ -54,7 +54,7 @@ def bmm_backward(output_grad: Tensor, x: Tensor, y: Tensor):
         raise MismatchDevicesError([output_grad.device, x.device, y.device])
 
     func = BackendDispatcher.instance().dispatch(x.device.type, "bmm_backward")
-    x_grad, y_grad = func(x, y)
+    x_grad, y_grad = func(output_grad, x, y)
 
     return [x_grad, y_grad]
 
