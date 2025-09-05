@@ -7,7 +7,7 @@ from mytorch.tensor import (
     InvalidDeviceError,
     MismatchDataTypesError,
 )
-from mytorch.cuda.env import CudaEnv
+from mytorch.backends.cuda.env import CudaEnv
 from mytorch.dtype import int8
 
 

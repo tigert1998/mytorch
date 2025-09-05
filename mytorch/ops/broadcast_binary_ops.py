@@ -9,7 +9,7 @@ from mytorch.tensor import (
     shape_size,
     CudaMemory,
 )
-from mytorch.cuda.env import CudaEnv
+from mytorch.backends.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
 
 

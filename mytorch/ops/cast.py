@@ -3,7 +3,7 @@ from functools import cache
 import numpy as np
 
 from mytorch.tensor import Tensor, shape_size, InvalidDeviceError
-from mytorch.cuda.env import CudaEnv
+from mytorch.backends.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
 from mytorch.dtype import DType
 

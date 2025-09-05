@@ -4,7 +4,7 @@ import ctypes
 import numpy as np
 import cuda.pathfinder
 
-from mytorch.cuda.env import CudaStream
+from mytorch.backends.cuda.env import CudaStream
 
 
 class CublasLt:

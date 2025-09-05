@@ -2,7 +2,7 @@ import numpy as np
 
 from mytorch.optim.optimizer import Optimizer
 from mytorch.tensor import Tensor, InvalidDeviceError, shape_size
-from mytorch.cuda.env import CudaEnv
+from mytorch.backends.cuda.env import CudaEnv
 
 
 class SGD(Optimizer):

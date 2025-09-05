@@ -101,7 +101,7 @@ class CudaCompiler:
         if len(cudadevrt_paths) != 1:
             raise RuntimeError(f"cudadevrt path is vague: {cudadevrt_paths}")
         self.cudadevrt_path = cudadevrt_paths[0]
-        self.kernel_src_path = osp.join(osp.dirname(__file__), "../native/cuda")
+        self.kernel_src_path = osp.join(osp.dirname(__file__), "../../native/cuda")
 
     def _arch(self, device_id):
         cu_device = check_cuda_errors(driver.cuDeviceGet(device_id))
@@ -324,7 +324,7 @@ class CudaKernel:
                     raise RuntimeError(
                         f"Invalid device for invoking CUDA kernel: {arg.device}"
                     )
-                np_args.append(np.array([int(arg._cuda_ptr())], dtype=np.uint64))
+                np_args.append(np.array([arg._raw_cuda_ptr()], dtype=np.uint64))
             elif isinstance(arg, np.ndarray):
                 np_args.append(arg)
             elif arg is None:
@@ -353,6 +353,7 @@ class CudaKernel:
                 0,
             )
         )
+        self.stream.sync()
         if timer:
             return cuda_timer.end()
 
@@ -392,7 +393,7 @@ class CudaKernelAndStreamManager:
             if self._modules.get(device_id) is None:
                 self._modules[device_id] = {}
             self._modules[device_id][cu_file_path] = self._cuda_compiler.compile(
-                osp.join(osp.dirname(__file__), "../native/cuda", cu_file_path),
+                osp.join(self._cuda_compiler.kernel_src_path, cu_file_path),
                 device_id,
             )
         module = self._modules[device_id][cu_file_path]
@@ -412,7 +413,7 @@ class CudaEnv:
         return cls._instance
 
     def __init__(self):
-        from mytorch.cuda.memory_allocator import SimpleCudaMemoryAllocator
+        from mytorch.backends.cuda.memory_allocator import SimpleCudaMemoryAllocator
 
         self.context_manager = CudaContextManager()
         self.compiler = CudaCompiler(self.context_manager)

@@ -5,7 +5,7 @@ from typing import Optional, Tuple, List
 from cuda.bindings import driver
 
 from mytorch.dtype import DType
-from mytorch.cuda.env import check_cuda_errors, CudaEnv
+from mytorch.backends.cuda.env import check_cuda_errors, CudaEnv
 from mytorch.autograd import DAGTracker
 
 
@@ -410,7 +410,7 @@ class Tensor:
 
         return func(self, self._cast_other_to_tensor(other))
 
-    def detach(self):
+    def detach(self) -> "Tensor":
         return Tensor(tensor=self, requires_grad=False)
 
     def numpy(self) -> npt.NDArray:
@@ -425,10 +425,10 @@ class Tensor:
             raise RuntimeError("Tensor that not on CPU cannot be converted to numpy")
         return self.cpu_array
 
-    def _cuda_ptr(self):
+    def _raw_cuda_ptr(self) -> int:
         if self.cuda_ptr is None:
             raise RuntimeError("Tensor that not on GPU does not have CUDA memory")
-        return self.cuda_ptr.ptr
+        return int(self.cuda_ptr.ptr)
 
     def backward(self):
         instance = DAGTracker.instance()

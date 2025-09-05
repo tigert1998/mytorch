@@ -2,7 +2,7 @@ import numpy as np
 from typing import Dict, List
 
 from cuda.bindings import driver
-from mytorch.cuda.env import check_cuda_errors
+from mytorch.backends.cuda.env import check_cuda_errors
 
 
 class SimpleCudaMemoryAllocator:
