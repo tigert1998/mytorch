@@ -16,3 +16,4 @@ from .broadcast_binary_ops import (
 )
 from .cast import cast
 from .cat import cat, cat_backward
+from .eq import eq

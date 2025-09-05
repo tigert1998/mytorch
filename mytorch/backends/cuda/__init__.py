@@ -17,3 +17,4 @@ from .ops.broadcast_binary_ops import (
 )
 from .ops.cast import cast
 from .ops.max import max
+from .ops.eq import eq
