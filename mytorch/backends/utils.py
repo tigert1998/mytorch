@@ -63,3 +63,25 @@ def calculate_reshaped_shape(
                 f"cannot reshape array of size {total_elements} into shape {target_shape}"
             )
         return target_shape
+
+
+def calculate_cat_shape(tensors, dim):
+    requires_grad = tensors[0].requires_grad
+    dtype = tensors[0].dtype
+    device = tensors[0].device
+    shape = list(tensors[0].shape)
+    for i in range(1, len(tensors)):
+        error_msg = f"Tensor #{i} mismatches from tensor #0 in cat operator"
+        if not (
+            requires_grad == tensors[i].requires_grad
+            and dtype == tensors[i].dtype
+            and device == tensors[i].device
+            and len(shape) == len(tensors[i].shape)
+        ):
+            raise RuntimeError(error_msg)
+        for j in range(len(shape)):
+            if j != dim and shape[j] != tensors[i].shape[j]:
+                raise RuntimeError(error_msg)
+        shape[dim] += tensors[i].shape[dim]
+
+    return shape
