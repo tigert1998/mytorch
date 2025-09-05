@@ -11,3 +11,4 @@ def cast(x, dtype):
         device=x.device,
     )
     output_tensor.cpu_array = x._numpy().astype(dtype.np_dtype)
+    return output_tensor

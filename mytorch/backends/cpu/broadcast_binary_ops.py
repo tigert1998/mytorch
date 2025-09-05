@@ -97,7 +97,7 @@ def mul_backward(output_grad, x, y):
     def func(x, y, output_grad):
         return y * output_grad, x * output_grad
 
-    return _backward_cpu(output_grad, x, y, [], func)
+    return _backward_cpu(output_grad, x, y, func)
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "div")
@@ -121,7 +121,7 @@ def div_backward(output_grad, x, y):
         y_grad_cpu_array = -x / (y**2) * output_grad
         return x_grad_cpu_array, y_grad_cpu_array
 
-    return _backward_cpu(output_grad, x, y, [], func)
+    return _backward_cpu(output_grad, x, y, func)
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "pow")
@@ -145,7 +145,7 @@ def pow_backward(output_grad, x, y):
         y_grad_cpu_array = np.power(x, y) * np.log(x) * output_grad
         return x_grad_cpu_array, y_grad_cpu_array
 
-    return _backward_cpu(output_grad, x, y, [], func)
+    return _backward_cpu(output_grad, x, y, func)
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "copy")

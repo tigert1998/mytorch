@@ -34,8 +34,12 @@ def cpu_bmm(x, y):
 def cpu_bmm_backward(output_grad, x, y):
     from mytorch.tensor import Tensor
 
-    x_grad_cpu_array = np.matmul(output_grad._numpy(), y._numpy().T)
-    y_grad_cpu_array = np.matmul(x._numpy().T, output_grad._numpy())
+    x_grad_cpu_array = np.matmul(
+        output_grad._numpy(), np.transpose(y._numpy(), (0, 2, 1))
+    )
+    y_grad_cpu_array = np.matmul(
+        np.transpose(x._numpy(), (0, 2, 1)), output_grad._numpy()
+    )
     x_grad = Tensor(cpu_array=x_grad_cpu_array, device="cpu")
     y_grad = Tensor(cpu_array=y_grad_cpu_array, device="cpu")
     return x_grad, y_grad
