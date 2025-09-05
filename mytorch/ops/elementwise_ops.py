@@ -1,172 +1,38 @@
-import numpy as np
-
-from mytorch.tensor import InvalidDeviceError, Tensor, shape_size
-from mytorch.cuda.env import CudaEnv
+from mytorch.tensor import (
+    MismatchDevicesError,
+    Tensor,
+)
 from mytorch.autograd import DAGTracker
+from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
-def extract_arg_list(arg_types, args, reference_tensor: Tensor):
-    arg_list = []
-    for i, dic in enumerate(arg_types):
-        dtype = dic["dtype"]
-        if dtype == "default":
-            dtype = reference_tensor.dtype.np_dtype
-        value = np.array(args[i], dtype=dtype)
-        arg_list.append(value)
-    return arg_list
+def _fill(x: Tensor, value):
+    func = BackendDispatcher.instance().dispatch(x.device.type, "fill")
+    func(x, value)
 
 
-def elementwise_operation_forward(name, arg_types, no_grad_and_inplace, forward_op_cpu):
-    def forward(x, *args):
-        arg_list = extract_arg_list(arg_types, args, x)
-        requires_grad = not no_grad_and_inplace and x.requires_grad
-        if x.device.type == "cuda":
-            func_name = f"{name}_reference_{x.dtype.name}"
-            cuda_kernel_and_stream_manager = (
-                CudaEnv.instance().kernel_and_stream_manager
-            )
-            cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-                "elementwise_ops.cu",
-                func_name,
-                x.device.index,
-            )
-
-            if no_grad_and_inplace:
-                output_tensor = np.array(0, np.uint64)
-            else:
-                output_tensor = Tensor(
-                    dtype=x.dtype,
-                    shape=x.shape,
-                    device=x.device,
-                    requires_grad=requires_grad,
-                )
-
-            num_elements = shape_size(x.shape)
-            cuda_kernel.run(
-                (128, 1, 1),
-                (128, 1, 1),
-                [
-                    np.array(num_elements, dtype=np.int32),
-                    x,
-                    *arg_list,
-                    output_tensor,
-                ],
-            )
-
-        elif x.device.type == "cpu":
-            if no_grad_and_inplace:
-                forward_op_cpu(x, *arg_list)
-            else:
-                output_tensor = Tensor(
-                    dtype=x.dtype,
-                    shape=x.shape,
-                    device=x.device,
-                    requires_grad=requires_grad,
-                )
-                output_tensor.cpu_array = forward_op_cpu(x, *arg_list)
-
-        else:
-            raise InvalidDeviceError(x.device.type)
-
-        if requires_grad:
-            DAGTracker.instance().add_node(name, [x, *arg_list], [output_tensor])
-
-        if not no_grad_and_inplace:
-            return output_tensor
-
-    return forward
+def _normal(x: Tensor, seed, mean, stddev):
+    func = BackendDispatcher.instance().dispatch(x.device.type, "normal")
+    func(x, seed, mean, stddev)
 
 
-def elementwise_operation_backward(name, backward_op_cpu):
-    @DAGTracker.instance().register_backward_function(name)
-    def backward(output_grad, x, *args):
-        x_grad = Tensor(dtype=x.dtype, shape=x.shape, device=x.device)
-        x_grad.fill_(0)
-
-        if output_grad.device.type == "cuda":
-            func_name = f"{name}_backward_reference_{output_grad.dtype.name}"
-            cuda_kernel_and_stream_manager = (
-                CudaEnv.instance().kernel_and_stream_manager
-            )
-            cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-                "elementwise_ops.cu", func_name, output_grad.device.index
-            )
-
-            num_elements = shape_size(output_grad.shape)
-            cuda_kernel.run(
-                (128, 1, 1),
-                (128, 1, 1),
-                [
-                    np.array(num_elements, dtype=np.int32),
-                    x,
-                    *args,
-                    x_grad,
-                    output_grad,
-                ],
-            )
-
-        elif output_grad.device.type == "cpu":
-            x_grad.cpu_array = backward_op_cpu(x, *args, output_grad)
-        else:
-            raise InvalidDeviceError(output_grad.device.type)
-
-        return [x_grad]
-
-    return backward
+def _uniform(x: Tensor, seed, a, b):
+    func = BackendDispatcher.instance().dispatch(x.device.type, "uniform")
+    func(x, seed, a, b)
 
 
-def _fill_forward_op_cpu(x, value):
-    np.copyto(x.cpu_array, value)
+def _relu(x: Tensor) -> Tensor:
+    func = BackendDispatcher.instance().dispatch(x.device.type, "relu")
+    output_tensor = func(x)
+    output_tensor.requires_grad = x.requires_grad
+    if output_tensor.requires_grad:
+        DAGTracker.instance().add_node("relu", [x], [output_tensor])
+    return output_tensor
 
 
-_fill = elementwise_operation_forward(
-    "fill", [{"dtype": "default"}], True, _fill_forward_op_cpu
-)
-
-
-def _normal_forward_op_cpu(x, seed, mean, stddev):
-    np.random.seed(seed)
-    x.cpu_array = np.random.normal(mean, stddev, x.shape).astype(x.dtype)
-
-
-_normal = elementwise_operation_forward(
-    "normal",
-    [{"dtype": np.uint64}, {"dtype": "default"}, {"dtype": "default"}],
-    True,
-    _normal_forward_op_cpu,
-)
-
-
-def _uniform_forward_op_cpu(x: Tensor, seed, a, b):
-    np.random.seed(seed)
-    x.cpu_array = np.random.uniform(low=a, high=b, size=x.shape).astype(
-        x.dtype.np_dtype
+@DAGTracker.instance().register_backward_function("relu")
+def relu_backward(output_grad, x):
+    func = BackendDispatcher.instance().dispatch(
+        output_grad.device.type, "relu_backward"
     )
-
-
-_uniform = elementwise_operation_forward(
-    "uniform",
-    [{"dtype": np.uint64}, {"dtype": "default"}, {"dtype": "default"}],
-    True,
-    _uniform_forward_op_cpu,
-)
-
-
-def _relu_forward_op_cpu(x):
-    return np.maximum(x.cpu_array, 0)
-
-
-def _relu_backward_op_cpu(x, output_grad):
-    x_grad = output_grad.cpu_array.copy()
-    x_grad[x.cpu_array < 0] = 0
-    return x_grad
-
-
-_relu = elementwise_operation_forward(
-    "relu",
-    [],
-    False,
-    _relu_forward_op_cpu,
-)
-
-_relu_backward = elementwise_operation_backward("relu", _relu_backward_op_cpu)
+    return func(output_grad, x)

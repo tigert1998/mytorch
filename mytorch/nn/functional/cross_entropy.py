@@ -1,7 +1,7 @@
 import numpy as np
 
 from mytorch.tensor import InvalidDataTypeError, InvalidDeviceError, Tensor
-from mytorch.cuda.env import CudaEnv
+from mytorch.backends.cuda.env import CudaEnv
 from mytorch.autograd import DAGTracker
 from mytorch.dtype import int64
 

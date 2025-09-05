@@ -5,7 +5,7 @@ from typing import Optional, Tuple, List
 from cuda.bindings import driver
 
 from mytorch.dtype import DType
-from mytorch.cuda.env import check_cuda_errors, CudaEnv
+from mytorch.backends.cuda.env import check_cuda_errors, CudaEnv
 from mytorch.autograd import DAGTracker
 
 
@@ -287,27 +287,27 @@ class Tensor:
             raise RuntimeError(f"Invalid tensor type to copy from: {tensor}")
         _copy(self, tensor.to(self.device))
 
-    def sum(self, dim=None, keepdim=False):
+    def sum(self, dim=None, keepdim=False) -> "Tensor":
         from mytorch.ops.reduce_ops import sum as func
 
         return func(self, dim, keepdim)
 
-    def mean(self, dim=None, keepdim=False):
+    def mean(self, dim=None, keepdim=False) -> "Tensor":
         from mytorch.ops.reduce_ops import mean as func
 
         return func(self, dim, keepdim)
 
-    def var(self, dim=None, correction=1, keepdim=False):
+    def var(self, dim=None, correction=1, keepdim=False) -> "Tensor":
         from mytorch.ops.reduce_ops import var as func
 
         return func(self, dim, correction, keepdim)
 
-    def std(self, dim=None, correction=1, keepdim=False):
+    def std(self, dim=None, correction=1, keepdim=False) -> "Tensor":
         from mytorch.ops.reduce_ops import std as func
 
         return func(self, dim, correction, keepdim)
 
-    def reshape(self, shape):
+    def reshape(self, shape) -> "Tensor":
         from mytorch.ops.basic_ops import reshape as func
 
         return func(self, shape)
@@ -330,52 +330,52 @@ class Tensor:
 
         return other
 
-    def __add__(self, other):
+    def __add__(self, other) -> "Tensor":
         from mytorch.ops.broadcast_binary_ops import add
 
         return add(self, self._cast_other_to_tensor(other), 1)
 
-    def __radd__(self, other):
+    def __radd__(self, other) -> "Tensor":
         from mytorch.ops.broadcast_binary_ops import add
 
         return add(self._cast_other_to_tensor(other), self, 1)
 
-    def __sub__(self, other):
+    def __sub__(self, other) -> "Tensor":
         from mytorch.ops.broadcast_binary_ops import sub
 
         return sub(self, self._cast_other_to_tensor(other), 1)
 
-    def __rsub__(self, other):
+    def __rsub__(self, other) -> "Tensor":
         from mytorch.ops.broadcast_binary_ops import sub
 
         return sub(self._cast_other_to_tensor(other), self, 1)
 
-    def __mul__(self, other):
+    def __mul__(self, other) -> "Tensor":
         from mytorch.ops.broadcast_binary_ops import mul
 
         return mul(self, self._cast_other_to_tensor(other))
 
-    def __rmul__(self, other):
+    def __rmul__(self, other) -> "Tensor":
         from mytorch.ops.broadcast_binary_ops import mul
 
         return mul(self._cast_other_to_tensor(other), self)
 
-    def __truediv__(self, other):
+    def __truediv__(self, other) -> "Tensor":
         from mytorch.ops.broadcast_binary_ops import div
 
         return div(self, self._cast_other_to_tensor(other))
 
-    def __rtruediv__(self, other):
+    def __rtruediv__(self, other) -> "Tensor":
         from mytorch.ops.broadcast_binary_ops import div
 
         return div(self._cast_other_to_tensor(other), self)
 
-    def __pow__(self, other):
+    def __pow__(self, other) -> "Tensor":
         from mytorch.ops.broadcast_binary_ops import pow
 
         return pow(self, self._cast_other_to_tensor(other))
 
-    def __rpow__(self, other):
+    def __rpow__(self, other) -> "Tensor":
         from mytorch.ops.broadcast_binary_ops import pow
 
         return pow(self._cast_other_to_tensor(other), self)
@@ -395,7 +395,7 @@ class Tensor:
     def item(self):
         return self.to("cpu").cpu_array.item()
 
-    def permute(self, dims):
+    def permute(self, dims) -> "Tensor":
         from mytorch.ops.basic_ops import permute as func
 
         return func(self, dims)
@@ -405,12 +405,12 @@ class Tensor:
 
         return func(self, dim, keepdim)
 
-    def eq(self, other):
+    def eq(self, other) -> "Tensor":
         from mytorch.ops.eq import eq as func
 
         return func(self, self._cast_other_to_tensor(other))
 
-    def detach(self):
+    def detach(self) -> "Tensor":
         return Tensor(tensor=self, requires_grad=False)
 
     def numpy(self) -> npt.NDArray:
@@ -425,10 +425,10 @@ class Tensor:
             raise RuntimeError("Tensor that not on CPU cannot be converted to numpy")
         return self.cpu_array
 
-    def _cuda_ptr(self):
+    def _raw_cuda_ptr(self) -> int:
         if self.cuda_ptr is None:
             raise RuntimeError("Tensor that not on GPU does not have CUDA memory")
-        return self.cuda_ptr.ptr
+        return int(self.cuda_ptr.ptr)
 
     def backward(self):
         instance = DAGTracker.instance()
