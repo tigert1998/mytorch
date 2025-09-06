@@ -1,13 +1,13 @@
 import numpy as np
 
-from mytorch.backends.cuda.env import CudaEnv
+from mytorch.backends.cuda.env import CudaEnv, CudaMemory
 from mytorch.dtype import int8
 from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "eq")
 def eq(x, y):
-    from mytorch.tensor import CudaMemory, Tensor, shape_size
+    from mytorch.tensor import Tensor, shape_size
 
     cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
     func_name = f"eq_reference_{x.dtype.name}"
@@ -22,7 +22,7 @@ def eq(x, y):
     x_shape_num_bytes = len(x.shape) * np.dtype(np.int32).itemsize
     y_shape_num_bytes = len(y.shape) * np.dtype(np.int32).itemsize
     if x_shape_num_bytes + y_shape_num_bytes > 0:
-        cuda_mem = CudaMemory(x_shape_num_bytes + y_shape_num_bytes)
+        cuda_mem = CudaMemory(x.device.index, x_shape_num_bytes + y_shape_num_bytes)
         cuda_mem.write(np.array(list(x.shape) + list(y.shape), dtype=np.int32))
         x_shape_ptr = int(cuda_mem.ptr)
         y_shape_ptr = x_shape_ptr + x_shape_num_bytes

@@ -2,13 +2,13 @@ from typing import Tuple
 
 import numpy as np
 
-from mytorch.backends.cuda.env import CudaEnv
+from mytorch.backends.cuda.env import CudaEnv, CudaMemory
 from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "permute")
 def cuda_permute(x, dims: Tuple[int, ...]):
-    from mytorch.tensor import Tensor, CudaMemory, shape_size
+    from mytorch.tensor import Tensor, shape_size
 
     func_name = f"permute_reference_{x.dtype.name}"
     cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
@@ -24,7 +24,7 @@ def cuda_permute(x, dims: Tuple[int, ...]):
     )
     num_bytes = np.dtype(np.int32).itemsize * len(dims)
     if num_bytes > 0:
-        cuda_mem = CudaMemory(num_bytes * 2)
+        cuda_mem = CudaMemory(x.device.index, num_bytes * 2)
         cuda_mem.write(np.array(x.shape + dims, dtype=np.int32))
         shape_ptr = int(cuda_mem.ptr)
         dims_ptr = shape_ptr + num_bytes
@@ -48,7 +48,7 @@ def cuda_permute(x, dims: Tuple[int, ...]):
 
 @BackendDispatcher.instance().register_backend_function("cuda", "permute_backward")
 def cuda_permute_backward(output_grad, x, dims: Tuple[int, ...]):
-    from mytorch.tensor import Tensor, CudaMemory, shape_size
+    from mytorch.tensor import Tensor, shape_size
 
     func_name = f"permute_backward_reference_{x.dtype.name}"
     cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
@@ -62,7 +62,7 @@ def cuda_permute_backward(output_grad, x, dims: Tuple[int, ...]):
     )
     num_bytes = np.dtype(np.int32).itemsize * len(dims)
     if num_bytes > 0:
-        cuda_mem = CudaMemory(num_bytes * 2)
+        cuda_mem = CudaMemory(x.device.index, num_bytes * 2)
         cuda_mem.write(np.array(x.shape + dims, dtype=np.int32))
         shape_ptr = int(cuda_mem.ptr)
         dims_ptr = shape_ptr + num_bytes

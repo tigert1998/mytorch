@@ -5,7 +5,10 @@ from glob import glob
 import regex as re
 import json
 
+import numpy.typing as npt
 from cuda.bindings import driver, nvrtc, runtime
+
+from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
 def _cuda_get_error_enum(error):
@@ -324,7 +327,7 @@ class CudaKernel:
                     raise RuntimeError(
                         f"Invalid device for invoking CUDA kernel: {arg.device}"
                     )
-                np_args.append(np.array([arg._raw_cuda_ptr()], dtype=np.uint64))
+                np_args.append(np.array([int(arg.native_array.ptr)], dtype=np.uint64))
             elif isinstance(arg, np.ndarray):
                 np_args.append(arg)
             elif arg is None:
@@ -428,3 +431,62 @@ class CudaEnv:
 
     def __del__(self):
         self.destroy()
+
+
+class CudaMemory:
+    def __init__(self, device_id, size):
+        self.device_id = device_id
+        self.size = size
+        CudaEnv.instance().context_manager.set_device(self.device_id)
+        self.ptr = CudaEnv.instance().allocator.allocate(size)
+
+    def destroy(self):
+        # you can call destory in advance
+        if self.ptr is not None:
+            CudaEnv.instance().context_manager.set_device(self.device_id)
+            CudaEnv.instance().allocator.deallocate(self.ptr)
+        self.ptr = None
+
+    def __del__(self):
+        self.destroy()
+
+    def read(self, shape, dtype: npt.DTypeLike) -> npt.NDArray:
+        CudaEnv.instance().context_manager.set_device(self.device_id)
+        array = np.zeros(shape=shape, dtype=dtype)
+        check_cuda_errors(
+            driver.cuMemcpyDtoH(
+                array.ctypes.data,
+                self.ptr,
+                array.itemsize * array.size,
+            )
+        )
+        return array
+
+    def write(self, array: npt.NDArray):
+        CudaEnv.instance().context_manager.set_device(self.device_id)
+        check_cuda_errors(
+            driver.cuMemcpyHtoD(
+                self.ptr,
+                array.ctypes.data,
+                array.itemsize * array.size,
+            )
+        )
+
+
+@BackendDispatcher.instance().register_backend_function("cuda", "allocate_memory")
+def allocate_memory(device_id: int, size: int) -> CudaMemory:
+    return CudaMemory(device_id, size)
+
+
+@BackendDispatcher.instance().register_backend_function("cuda", "transfer_memory")
+def transfer_memory(mem0: CudaMemory, mem1: CudaMemory):
+    # mem0 = mem1
+    check_cuda_errors(
+        driver.cuMemcpyPeer(
+            mem0.ptr,
+            check_cuda_errors(driver.cuDeviceGet(mem0.device_id)),
+            mem1.ptr,
+            check_cuda_errors(driver.cuDeviceGet(mem1.device_id)),
+            mem0.size,
+        )
+    )

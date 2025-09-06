@@ -1,12 +1,12 @@
 import numpy as np
 
-from mytorch.backends.cuda.env import CudaEnv
+from mytorch.backends.cuda.env import CudaEnv, CudaMemory
 from mytorch.backends.utils import calculate_reduce_shape
 from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
 def _reduce_op(name, arg_list, tensor, dim, keepdim):
-    from mytorch.tensor import CudaMemory, shape_size, Tensor
+    from mytorch.tensor import shape_size, Tensor
 
     if dim is None:
         dim = tuple(range(len(tensor.shape)))
@@ -27,7 +27,9 @@ def _reduce_op(name, arg_list, tensor, dim, keepdim):
     tensor_shape_num_bytes = len(tensor.shape) * np.dtype(np.int32).itemsize
     dim_num_bytes = len(dim) * np.dtype(np.int32).itemsize
     if tensor_shape_num_bytes + dim_num_bytes > 0:
-        cuda_mem = CudaMemory(tensor_shape_num_bytes + dim_num_bytes)
+        cuda_mem = CudaMemory(
+            tensor.device.index, tensor_shape_num_bytes + dim_num_bytes
+        )
         cuda_mem.write(np.array(list(tensor.shape) + list(dim), dtype=np.int32))
         tensor_shape_ptr = int(cuda_mem.ptr)
         dim_ptr = tensor_shape_ptr + tensor_shape_num_bytes
@@ -58,7 +60,7 @@ def _reduce_op(name, arg_list, tensor, dim, keepdim):
 
 
 def _reduce_op_backward(name, output_grad, tensor, dim, keepdim, args):
-    from mytorch.tensor import Tensor, CudaMemory, shape_size
+    from mytorch.tensor import Tensor, shape_size
 
     tensor_grad = Tensor(shape=tensor.shape, dtype=tensor.dtype, device=tensor.device)
     func_name = f"{name}_backward_reference_{tensor.dtype.name}"
@@ -69,7 +71,9 @@ def _reduce_op_backward(name, output_grad, tensor, dim, keepdim, args):
     tensor_shape_num_bytes = len(tensor.shape) * np.dtype(np.int32).itemsize
     dim_num_bytes = len(dim) * np.dtype(np.int32).itemsize
     if tensor_shape_num_bytes + dim_num_bytes > 0:
-        cuda_mem = CudaMemory(tensor_shape_num_bytes + dim_num_bytes)
+        cuda_mem = CudaMemory(
+            tensor.device.index, tensor_shape_num_bytes + dim_num_bytes
+        )
         cuda_mem.write(np.array(list(tensor.shape) + list(dim), dtype=np.int32))
         tensor_shape_ptr = int(cuda_mem.ptr)
         dim_ptr = tensor_shape_ptr + tensor_shape_num_bytes

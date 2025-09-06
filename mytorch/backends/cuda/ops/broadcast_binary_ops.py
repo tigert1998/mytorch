@@ -1,12 +1,12 @@
 import numpy as np
 
-from mytorch.backends.cuda.env import CudaEnv
+from mytorch.backends.cuda.env import CudaEnv, CudaMemory
 from mytorch.backends.backend_dispatcher import BackendDispatcher
 from mytorch.backends.utils import calculate_broadcast_shape
 
 
 def _broadcast_binary_op(name: str, arg_list: list, no_grad_and_inplace: bool, x, y):
-    from mytorch.tensor import CudaMemory, shape_size, Tensor
+    from mytorch.tensor import shape_size, Tensor
 
     output_shape = calculate_broadcast_shape(x.shape, y.shape)
     func_name = f"{name}_reference_{x.dtype.name}"
@@ -17,7 +17,7 @@ def _broadcast_binary_op(name: str, arg_list: list, no_grad_and_inplace: bool, x
     x_shape_num_bytes = len(x.shape) * np.dtype(np.int32).itemsize
     y_shape_num_bytes = len(y.shape) * np.dtype(np.int32).itemsize
     if x_shape_num_bytes + y_shape_num_bytes > 0:
-        cuda_mem = CudaMemory(x_shape_num_bytes + y_shape_num_bytes)
+        cuda_mem = CudaMemory(x.device.index, x_shape_num_bytes + y_shape_num_bytes)
         cuda_mem.write(np.array(list(x.shape) + list(y.shape), dtype=np.int32))
         x_shape_ptr = int(cuda_mem.ptr)
         y_shape_ptr = x_shape_ptr + x_shape_num_bytes
@@ -52,7 +52,7 @@ def _broadcast_binary_op(name: str, arg_list: list, no_grad_and_inplace: bool, x
 
 
 def _broadcast_binary_op_backward(name, output_grad, x, y, args):
-    from mytorch.tensor import CudaMemory, shape_size, Tensor
+    from mytorch.tensor import shape_size, Tensor
 
     x_grad = Tensor(dtype=x.dtype, shape=x.shape, device=x.device)
     x_grad.fill_(0)
@@ -67,7 +67,7 @@ def _broadcast_binary_op_backward(name, output_grad, x, y, args):
     x_shape_num_bytes = len(x.shape) * np.dtype(np.int32).itemsize
     y_shape_num_bytes = len(y.shape) * np.dtype(np.int32).itemsize
     if x_shape_num_bytes + y_shape_num_bytes > 0:
-        cuda_mem = CudaMemory(x_shape_num_bytes + y_shape_num_bytes)
+        cuda_mem = CudaMemory(x.device.index, x_shape_num_bytes + y_shape_num_bytes)
         cuda_mem.write(np.array(list(x.shape) + list(y.shape), dtype=np.int32))
         x_shape_ptr = int(cuda_mem.ptr)
         y_shape_ptr = x_shape_ptr + x_shape_num_bytes
