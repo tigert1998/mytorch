@@ -68,25 +68,25 @@ class SGD(Optimizer):
 
                 elif param.device.type == "cpu":
                     g = (
-                        -param.grad.cpu_array
+                        -param.grad._numpy()
                         if group["maximize"]
-                        else param.grad.cpu_array
+                        else param.grad._numpy()
                     )
-                    g += group["weight_decay"] * param.cpu_array
-                    momentum_buffer.cpu_array = (
+                    g += group["weight_decay"] * param._numpy()
+                    momentum_buffer._cpu_array = (
                         g
                         if is_first_time
                         else (
-                            group["momentum"] * momentum_buffer.cpu_array
+                            group["momentum"] * momentum_buffer._numpy()
                             + (1 - group["dampening"]) * g
                         )
                     )
                     g = (
-                        (g + group["momentum"] * momentum_buffer.cpu_array)
+                        (g + group["momentum"] * momentum_buffer._numpy())
                         if group["nesterov"]
-                        else momentum_buffer.cpu_array
+                        else momentum_buffer._numpy()
                     )
-                    param.cpu_array -= g * group["lr"]
+                    param._cpu_array -= g * group["lr"]
 
                 else:
                     raise InvalidDeviceError(param.device.type)

@@ -13,5 +13,5 @@ def cpu_eq(x, y):
         shape=x.shape,
         device=x.device,
     )
-    output_tensor.cpu_array = (x._numpy() == y._numpy()).astype(np.int8)
+    output_tensor._cpu_array = (x._numpy() == y._numpy()).astype(np.int8)
     return output_tensor

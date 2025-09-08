@@ -10,7 +10,7 @@ def cpu_sum_scale(tensor, dim, keepdim, scale):
 
     output_shape = calculate_reduce_shape(tensor.shape, dim, keepdim)
     output_tensor = Tensor(shape=output_shape, device=tensor.device, dtype=tensor.dtype)
-    output_tensor.cpu_array = (
+    output_tensor._cpu_array = (
         np.sum(tensor._numpy(), axis=dim, keepdims=keepdim) * scale
     )
     return output_tensor
@@ -23,8 +23,8 @@ def cpu_sum_scale_backward(output_grad, tensor, dim, keepdim, scale):
     input_grad = Tensor(shape=tensor.shape, device=tensor.device, dtype=tensor.dtype)
 
     if keepdim:
-        input_grad.cpu_array = output_grad._numpy() * scale
+        input_grad._cpu_array = output_grad._numpy() * scale
     else:
-        input_grad.cpu_array = np.expand_dims(output_grad._numpy(), dim) * scale
+        input_grad._cpu_array = np.expand_dims(output_grad._numpy(), dim) * scale
 
     return [input_grad]

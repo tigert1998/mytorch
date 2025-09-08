@@ -19,7 +19,7 @@ def cpu_cat(tensors, dim):
     )
 
     cpu_arrays = [tensor._numpy() for tensor in tensors]
-    output_tensor.cpu_array = np.concatenate(cpu_arrays, axis=dim)
+    output_tensor._cpu_array = np.concatenate(cpu_arrays, axis=dim)
 
     return output_tensor
 

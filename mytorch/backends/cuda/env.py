@@ -122,7 +122,7 @@ class CudaCompiler:
         )
         return major, minor
 
-    def _get_templated_source(self, path: str) -> str:
+    def _get_templated_source(self, path: str) -> tuple[str, str]:
         from mytorch.dtype import DType
 
         path = osp.join(self.kernel_src_path, path)
@@ -327,7 +327,7 @@ class CudaKernel:
                     raise RuntimeError(
                         f"Invalid device for invoking CUDA kernel: {arg.device}"
                     )
-                np_args.append(np.array([int(arg.native_array.ptr)], dtype=np.uint64))
+                np_args.append(np.array([int(arg._native().ptr)], dtype=np.uint64))
             elif isinstance(arg, np.ndarray):
                 np_args.append(arg)
             elif arg is None:

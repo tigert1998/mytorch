@@ -39,11 +39,11 @@ def cross_entropy(input, target):
         )
 
     elif input.device.type == "cpu":
-        softmax = np.exp(input.cpu_array) / np.sum(
-            np.exp(input.cpu_array), axis=1, keepdims=True
+        softmax = np.exp(input._numpy()) / np.sum(
+            np.exp(input._numpy()), axis=1, keepdims=True
         )
-        log = [-np.log(softmax[i][target.cpu_array[i]]) for i in range(target.shape[0])]
-        tensor.cpu_array = np.mean(log)
+        log = [-np.log(softmax[i][target._numpy()[i]]) for i in range(target.shape[0])]
+        tensor._cpu_array = np.mean(log)
 
     else:
         raise InvalidDeviceError(input.device.type)
@@ -84,12 +84,12 @@ def cross_entropy_backward(output_grad, input, target):
         )
 
     elif input.device.type == "cpu":
-        softmax = np.exp(input.cpu_array) / np.sum(
-            np.exp(input.cpu_array), axis=1, keepdims=True
+        softmax = np.exp(input._numpy()) / np.sum(
+            np.exp(input._numpy()), axis=1, keepdims=True
         )
-        target_onehot = np.eye(num_classes, dtype=input.dtype)[target.cpu_array]
-        input_grad.cpu_array = (
-            (softmax - target_onehot) * output_grad.cpu_array / batch_size
+        target_onehot = np.eye(num_classes, dtype=input.dtype)[target._numpy()]
+        input_grad._cpu_array = (
+            (softmax - target_onehot) * output_grad._numpy() / batch_size
         )
 
     else:

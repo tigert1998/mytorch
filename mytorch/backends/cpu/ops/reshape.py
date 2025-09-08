@@ -11,5 +11,5 @@ def cpu_reshape(x, shape: Tuple[int, ...]):
     shape = calculate_reshaped_shape(x.shape, shape)
     new_x = Tensor(tensor=x)
     new_x.shape = shape
-    new_x.cpu_array = new_x._numpy().reshape(new_x.shape)
+    new_x._cpu_array = new_x._numpy().reshape(new_x.shape)
     return new_x

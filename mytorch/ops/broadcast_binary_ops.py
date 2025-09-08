@@ -106,7 +106,7 @@ def pow_backward(output_tensor, x: Tensor, y: Tensor) -> Tensor:
     return func(output_tensor, x, y)
 
 
-def _copy(x: Tensor, y: Tensor) -> Tensor:
+def _copy(x: Tensor, y: Tensor):
     if x.device != y.device:
         raise MismatchDevicesError([x.device, y.device])
     func = BackendDispatcher.instance().dispatch(x.device.type, "copy")
