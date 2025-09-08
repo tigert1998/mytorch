@@ -22,10 +22,10 @@ def cpu_max_pool2d(
         mode="constant",
     )
 
-    out_height = (pad_height - kernel_size[0]) // stride[0] + 1
-    out_width = (pad_width - kernel_size[1]) // stride[1] + 1
+    output_height = (pad_height - kernel_size[0]) // stride[0] + 1
+    output_width = (pad_width - kernel_size[1]) // stride[1] + 1
 
-    output = np.zeros((batch_size, channels, out_height, out_width)).astype(
+    output = np.zeros((batch_size, channels, output_height, output_width)).astype(
         input_tensor.dtype.np_dtype
     )
 
@@ -33,8 +33,8 @@ def cpu_max_pool2d(
     def loop(output, padded_input):
         for b in range(batch_size):
             for c in range(channels):
-                for h in range(out_height):
-                    for w in range(out_width):
+                for h in range(output_height):
+                    for w in range(output_width):
                         h_start = h * stride[0]
                         h_end = h_start + kernel_size[0]
                         w_start = w * stride[1]

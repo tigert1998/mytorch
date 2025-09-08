@@ -1,3 +1,4 @@
 cuda-python
 matplotlib
 tqdm
+numba
