@@ -1,4 +1,4 @@
-from typing import Optional, Self, Dict, Set
+from typing import Optional, Dict, Set
 
 from mytorch.nn.parameter import Parameter, Tensor
 from mytorch.logger_manager import LoggerManager
@@ -7,7 +7,7 @@ from mytorch.logger_manager import LoggerManager
 class Module:
     _parameters: Dict[str, Parameter]
     _buffers: Dict[str, Tensor]
-    _modules: Dict[str, Self]
+    _modules: Dict[str, "Module"]
     training: bool
 
     def __init__(self):
@@ -26,18 +26,18 @@ class Module:
             self._buffers[name] = buffer
         super().__setattr__(name, buffer)
 
-    def register_module(self, name, module: Optional[Self]):
+    def register_module(self, name, module: Optional["Module"]):
         if module is not None:
             self._modules[name] = module
         super().__setattr__(name, module)
 
-    def train(self, mode=True) -> Self:
+    def train(self, mode=True) -> "Module":
         self.training = mode
         for child in self.children():
             child.train(mode=mode)
         return self
 
-    def eval(self) -> Self:
+    def eval(self) -> "Module":
         return self.train(mode=False)
 
     def to(self, device):
@@ -71,7 +71,7 @@ class Module:
             yield module
 
     def _named_members(
-        self, get_members_fn, prefix="", recurse=True, remove_duplicate: bool = True
+            self, get_members_fn, prefix="", recurse=True, remove_duplicate: bool = True
     ):
         # from pytorch source code
         memo = set()
@@ -91,10 +91,10 @@ class Module:
                 yield name, v
 
     def named_modules(
-        self,
-        memo: Optional[Set[Self]] = None,
-        prefix: str = "",
-        remove_duplicate: bool = True,
+            self,
+            memo: Optional[Set["Module"]] = None,
+            prefix: str = "",
+            remove_duplicate: bool = True,
     ):
         # from pytorch source code
         if memo is None:
@@ -112,7 +112,7 @@ class Module:
                 )
 
     def named_parameters(
-        self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
+            self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
     ):
         # from pytorch source code
         gen = self._named_members(
@@ -124,7 +124,7 @@ class Module:
         yield from gen
 
     def named_buffers(
-        self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
+            self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
     ):
         # from pytorch source code
         gen = self._named_members(
@@ -174,7 +174,7 @@ class Module:
             for k, _ in module.named_parameters(prefix=prefix, recurse=False):
                 missing_keys_memo.add(k)
             for k, v in local_state_dict.items():
-                name = k if prefix == "" else k[len(prefix) + 1 :]
+                name = k if prefix == "" else k[len(prefix) + 1:]
                 tensor: Tensor = getattr(module, name, None)
                 if tensor is not None:
                     tensor.copy_(v)

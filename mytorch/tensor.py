@@ -1,6 +1,6 @@
 import numpy as np
 import numpy.typing as npt
-from typing import Optional, Tuple, List, Any
+from typing import Optional, Tuple, List, Any, Union
 
 from mytorch.dtype import DType
 from mytorch.autograd import DAGTracker
@@ -65,13 +65,13 @@ class Device:
                 self.index = None
             else:
                 self.type = device[:sep].strip()
-                self.index = int(device[sep + 1 :])
+                self.index = int(device[sep + 1:])
 
     def __eq__(self, other):
         return (
-            isinstance(other, Device)
-            and self.type == other.type
-            and self.index == other.index
+                isinstance(other, Device)
+                and self.type == other.type
+                and self.index == other.index
         )
 
     def __repr__(self):
@@ -100,13 +100,13 @@ class Tensor:
     _native_array: Optional[Any]
 
     def __init__(
-        self,
-        cpu_array: Optional[npt.NDArray] = None,
-        dtype: Optional[DType] = None,
-        shape: Optional[List[int] | Tuple[int, ...]] = None,
-        device: Optional[str | Device] = None,
-        tensor: Optional["Tensor"] = None,
-        requires_grad: bool = False,
+            self,
+            cpu_array: Optional[npt.NDArray] = None,
+            dtype: Optional[DType] = None,
+            shape: Optional[Union[List[int], Tuple[int, ...]]] = None,
+            device: Optional[Union[str, Device]] = None,
+            tensor: Optional["Tensor"] = None,
+            requires_grad: bool = False,
     ):
         self.requires_grad = requires_grad
         self.grad = None

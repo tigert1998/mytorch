@@ -26,5 +26,7 @@ from .ops.elementwise_ops import (
     cuda_relu_backward,
 )
 from .ops.reduce_ops import cuda_sum_scale, cuda_sum_scale_backward
+from .ops.batch_norm import cuda_batch_norm2d, cuda_batch_norm2d_backward
+from .ops.cross_entropy import cuda_cross_entropy, cuda_cross_entropy_backward
 
 from .env import cuda_allocate_memory
