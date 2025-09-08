@@ -25,6 +25,10 @@ from .ops.elementwise_ops import (
     cpu_normal,
     cpu_relu,
     cpu_relu_backward,
+    cpu_sqr,
+    cpu_sqr_backward,
+    cpu_sqrt,
+    cpu_sqrt_backward,
 )
 from .ops.reduce_ops import cpu_sum_scale, cpu_sum_scale_backward
 from .ops.cross_entropy import cpu_cross_entropy, cpu_cross_entropy_backward

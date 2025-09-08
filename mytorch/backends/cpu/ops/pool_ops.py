@@ -5,6 +5,52 @@ from mytorch.tensor import Tensor
 from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
+@numba.njit(cache=True)
+def _forward_loop(
+    output,
+    padded_input,
+    stride,
+    kernel_size,
+):
+    for b in range(output.shape[0]):
+        for c in range(output.shape[1]):
+            for h in range(output.shape[2]):
+                for w in range(output.shape[3]):
+                    h_start = h * stride[0]
+                    h_end = h_start + kernel_size[0]
+                    w_start = w * stride[1]
+                    w_end = w_start + kernel_size[1]
+                    output[b, c, h, w] = np.max(
+                        padded_input[b, c, h_start:h_end, w_start:w_end]
+                    )
+
+
+@numba.njit(cache=True)
+def _backward_loop(
+    output_grad, input_grad, output, input, kernel_size, stride, padding
+):
+    for b in range(input_grad.shape[0]):
+        for c in range(input_grad.shape[1]):
+            for oh in range(output_grad.shape[2]):
+                for ow in range(output_grad.shape[3]):
+                    ih_start = oh * stride[0] - padding[0]
+                    iw_start = ow * stride[1] - padding[1]
+                    ih_end = min(
+                        ih_start + kernel_size[0], input_grad.shape[2] + padding[0]
+                    )
+                    iw_end = min(
+                        iw_start + kernel_size[1], input_grad.shape[3] + padding[1]
+                    )
+                    ih_start = max(0, ih_start)
+                    iw_start = max(0, iw_start)
+                    pool_region = input[b, c, ih_start:ih_end, iw_start:iw_end]
+                    max_val = output[b, c, oh, ow]
+                    mask = pool_region == max_val
+                    input_grad[b, c, ih_start:ih_end, iw_start:iw_end] += (
+                        mask * output_grad[b, c, oh, ow]
+                    )
+
+
 @BackendDispatcher.instance().register_backend_function("cpu", "max_pool2d")
 def cpu_max_pool2d(
     input_tensor: Tensor,
@@ -29,22 +75,12 @@ def cpu_max_pool2d(
         input_tensor.dtype.np_dtype
     )
 
-    @numba.njit
-    def loop(output, padded_input):
-        for b in range(batch_size):
-            for c in range(channels):
-                for h in range(output_height):
-                    for w in range(output_width):
-                        h_start = h * stride[0]
-                        h_end = h_start + kernel_size[0]
-                        w_start = w * stride[1]
-                        w_end = w_start + kernel_size[1]
-
-                        output[b, c, h, w] = np.max(
-                            padded_input[b, c, h_start:h_end, w_start:w_end]
-                        )
-
-    loop(output, padded_input)
+    _forward_loop(
+        output,
+        padded_input,
+        stride,
+        kernel_size,
+    )
 
     return Tensor(output, device=input_tensor.device)
 
@@ -59,41 +95,11 @@ def cpu_max_pool2d_backward(
     padding: tuple[int, int],
 ):
     input = input_tensor._numpy()
-    batch_size, in_channels, input_height, input_width = input.shape
-    _, _, output_height, output_width = output_tensor.shape
     output = output_tensor._numpy()
     output_grad = output_grad_tensor._numpy()
-    kernel_height, kernel_width = kernel_size
-    stride_height, stride_width = stride
-    pad_height, pad_width = padding
 
     input_grad = np.zeros_like(input).astype(input_tensor.dtype.np_dtype)
 
-    @numba.njit
-    def loop(output_grad, input_grad, output, input):
-        for b in range(batch_size):
-            for c in range(in_channels):
-                for oh in range(output_height):
-                    for ow in range(output_width):
-                        ih_start = oh * stride_height - pad_height
-                        iw_start = ow * stride_width - pad_width
-                        ih_end = min(
-                            ih_start + kernel_height, input_height + pad_height
-                        )
-                        iw_end = min(iw_start + kernel_width, input_width + pad_width)
-
-                        ih_start = max(0, ih_start)
-                        iw_start = max(0, iw_start)
-
-                        pool_region = input[b, c, ih_start:ih_end, iw_start:iw_end]
-
-                        max_val = output[b, c, oh, ow]
-                        mask = pool_region == max_val
-
-                        input_grad[b, c, ih_start:ih_end, iw_start:iw_end] += (
-                            mask * output_grad[b, c, oh, ow]
-                        )
-
-    loop(output_grad, input_grad, output, input)
+    _backward_loop(output_grad, input_grad, output, input, kernel_size, stride, padding)
 
     return [Tensor(input_grad, device=input_tensor.device)]

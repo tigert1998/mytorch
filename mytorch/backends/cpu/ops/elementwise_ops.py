@@ -39,3 +39,39 @@ def cpu_relu_backward(output_grad, x):
     x_grad._cpu_array = output_grad._numpy().copy()
     x_grad._cpu_array[x._numpy() < 0] = 0
     return [x_grad]
+
+
+@BackendDispatcher.instance().register_backend_function("cpu", "sqr")
+def cpu_sqr(x):
+    from mytorch.tensor import Tensor
+
+    new_x = Tensor(device=x.device, shape=x.shape, dtype=x.dtype)
+    new_x._cpu_array = x._numpy() ** 2
+    return new_x
+
+
+@BackendDispatcher.instance().register_backend_function("cpu", "sqr_backward")
+def cpu_sqr_backward(output_grad, x):
+    from mytorch.tensor import Tensor
+
+    x_grad = Tensor(device=x.device, shape=x.shape, dtype=x.dtype)
+    x_grad._cpu_array = output_grad._numpy() * 2 * x._numpy()
+    return [x_grad]
+
+
+@BackendDispatcher.instance().register_backend_function("cpu", "sqrt")
+def cpu_sqrt(x):
+    from mytorch.tensor import Tensor
+
+    new_x = Tensor(device=x.device, shape=x.shape, dtype=x.dtype)
+    new_x._cpu_array = x._numpy() ** 0.5
+    return new_x
+
+
+@BackendDispatcher.instance().register_backend_function("cpu", "sqrt_backward")
+def cpu_sqrt_backward(output_grad, x):
+    from mytorch.tensor import Tensor
+
+    x_grad = Tensor(device=x.device, shape=x.shape, dtype=x.dtype)
+    x_grad._cpu_array = output_grad._numpy() * 0.5 * (x._numpy() ** -0.5)
+    return [x_grad]

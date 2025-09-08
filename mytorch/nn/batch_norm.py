@@ -1,6 +1,7 @@
 from mytorch.nn.module import Module
 from mytorch.nn.parameter import Parameter, Tensor
 from mytorch.dtype import float32
+from mytorch.ops.elementwise_ops import sqr, sqrt
 
 
 class _BatchNormBase(Module):
@@ -69,7 +70,7 @@ class _BatchNormBase(Module):
                     + self.momentum * batch_var.reshape((self.num_features,))
                 )
 
-            x_normalized = (x - batch_mean) / ((batch_var + self.eps) ** 0.5)
+            x_normalized = (x - batch_mean) / sqrt(batch_var + self.eps)
         else:
             if self.track_running_stats:
                 mean = self.running_mean.reshape(reshape_shape)
@@ -78,7 +79,7 @@ class _BatchNormBase(Module):
                 mean = x.mean(dim=reduce_axis, keepdim=True)
                 var = x.var(dim=reduce_axis, keepdim=True, correction=0)
 
-            x_normalized = (x - mean) / (var + self.eps) ** 0.5
+            x_normalized = (x - mean) / sqrt(var + self.eps)
 
         if self.affine:
             weight = self.weight.reshape(reshape_shape)

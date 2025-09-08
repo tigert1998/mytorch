@@ -36,3 +36,37 @@ def relu_backward(output_grad, x):
         output_grad.device.type, "relu_backward"
     )
     return func(output_grad, x)
+
+
+def sqr(x: Tensor) -> Tensor:
+    func = BackendDispatcher.instance().dispatch(x.device.type, "sqr")
+    output_tensor = func(x)
+    output_tensor.requires_grad = x.requires_grad
+    if output_tensor.requires_grad:
+        DAGTracker.instance().add_node("sqr", [x], [output_tensor])
+    return output_tensor
+
+
+@DAGTracker.instance().register_backward_function("sqr")
+def sqr_backward(output_grad, x):
+    func = BackendDispatcher.instance().dispatch(
+        output_grad.device.type, "sqr_backward"
+    )
+    return func(output_grad, x)
+
+
+def sqrt(x: Tensor) -> Tensor:
+    func = BackendDispatcher.instance().dispatch(x.device.type, "sqrt")
+    output_tensor = func(x)
+    output_tensor.requires_grad = x.requires_grad
+    if output_tensor.requires_grad:
+        DAGTracker.instance().add_node("sqrt", [x], [output_tensor])
+    return output_tensor
+
+
+@DAGTracker.instance().register_backward_function("sqrt")
+def sqrt_backward(output_grad, x):
+    func = BackendDispatcher.instance().dispatch(
+        output_grad.device.type, "sqrt_backward"
+    )
+    return func(output_grad, x)

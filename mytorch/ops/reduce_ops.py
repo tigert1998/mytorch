@@ -3,6 +3,7 @@ from typing import Tuple
 from mytorch.tensor import shape_size, Tensor
 from mytorch.autograd import DAGTracker
 from mytorch.backends.backend_dispatcher import BackendDispatcher
+from mytorch.ops.elementwise_ops import sqrt, sqr
 
 
 def _sum_scale(x: Tensor, dim=None, keepdim=False, scale=1) -> Tensor:
@@ -48,8 +49,8 @@ def var(x: Tensor, dim=None, correction=1, keepdim=False) -> Tensor:
         dim = (dim,)
     scale = 1 / (shape_size([x.shape[i] for i in dim]) - correction)
     x_minus_mean = x - mean(x, dim=dim, keepdim=True)
-    return _sum_scale(x_minus_mean**2, dim, keepdim, scale)
+    return _sum_scale(sqr(x_minus_mean), dim, keepdim, scale)
 
 
 def std(x: Tensor, dim=None, correction=1, keepdim=False) -> Tensor:
-    return var(x, dim, correction, keepdim) ** 0.5
+    return sqrt(var(x, dim, correction, keepdim))
