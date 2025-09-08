@@ -6,7 +6,7 @@ from mytorch.tensor import Tensor
 class MyTorchPickler(pickle.Pickler):
     def persistent_id(self, obj):
         if isinstance(obj, Tensor):
-            return ("MyTorchTensor", obj.device, obj.to("cpu").cpu_array)
+            return ("MyTorchTensor", obj.device, obj.to("cpu")._cpu_array)
         else:
             return None
 

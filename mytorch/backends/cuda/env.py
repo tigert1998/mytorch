@@ -98,8 +98,9 @@ class CudaCompiler:
 
     def __init__(self, cuda_context_manager):
         self._cuda_context_manager = cuda_context_manager
+        cuda_path = os.environ["CUDA_PATH"]
         cudadevrt_paths = glob(
-            f"{os.environ["CUDA_PATH"]}/lib*/**/*cudadevrt.*", recursive=True
+            f"{cuda_path}/lib*/**/*cudadevrt.*", recursive=True
         )
         if len(cudadevrt_paths) != 1:
             raise RuntimeError(f"cudadevrt path is vague: {cudadevrt_paths}")
@@ -122,7 +123,7 @@ class CudaCompiler:
         )
         return major, minor
 
-    def _get_templated_source(self, path: str) -> str:
+    def _get_templated_source(self, path: str) -> tuple[str, str]:
         from mytorch.dtype import DType
 
         path = osp.join(self.kernel_src_path, path)
@@ -213,16 +214,16 @@ class CudaCompiler:
             for dtypes in instantiation[function_name]:
                 new_arg_types = replace_arg_types_with_template(arg_types, dtypes)
                 func_decl = (
-                    f'extern "C" __global__ {return_type} {function_name}'
-                    + "".join([f"_{dtype.name}" for dtype in dtypes])
-                    + "("
-                    + ", ".join(
-                        [
-                            f"{arg_type} {arg_name}"
-                            for arg_type, arg_name in zip(new_arg_types, arg_names)
-                        ]
-                    )
-                    + ")"
+                        f'extern "C" __global__ {return_type} {function_name}'
+                        + "".join([f"_{dtype.name}" for dtype in dtypes])
+                        + "("
+                        + ", ".join(
+                    [
+                        f"{arg_type} {arg_name}"
+                        for arg_type, arg_name in zip(new_arg_types, arg_names)
+                    ]
+                )
+                        + ")"
                 )
                 func_body = f"{function_name}(" + ", ".join(arg_names) + ");"
                 content += func_decl + "{\n  " + func_body + "\n}\n"
@@ -321,13 +322,13 @@ class CudaKernel:
         for arg in args:
             if isinstance(arg, Tensor):
                 if (
-                    arg.device.type != "cuda"
-                    or arg.device.index != self.stream.device_id
+                        arg.device.type != "cuda"
+                        or arg.device.index != self.stream.device_id
                 ):
                     raise RuntimeError(
                         f"Invalid device for invoking CUDA kernel: {arg.device}"
                     )
-                np_args.append(np.array([int(arg.native_array.ptr)], dtype=np.uint64))
+                np_args.append(np.array([int(arg._native().ptr)], dtype=np.uint64))
             elif isinstance(arg, np.ndarray):
                 np_args.append(arg)
             elif arg is None:
@@ -367,7 +368,7 @@ class CudaKernelAndStreamManager:
     _modules: dict[int, dict[str, driver.CUmodule]]
 
     def __init__(
-        self, cuda_compiler: CudaCompiler, cuda_context_manager: CudaContextManager
+            self, cuda_compiler: CudaCompiler, cuda_context_manager: CudaContextManager
     ):
         self._cuda_compiler = cuda_compiler
         self._cuda_context_manager = cuda_context_manager

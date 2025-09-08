@@ -10,5 +10,5 @@ def cpu_cast(x, dtype):
         shape=x.shape,
         device=x.device,
     )
-    output_tensor.cpu_array = x._numpy().astype(dtype.np_dtype)
+    output_tensor._cpu_array = x._numpy().astype(dtype.np_dtype)
     return output_tensor

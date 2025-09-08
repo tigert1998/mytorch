@@ -4,9 +4,10 @@ from mytorch.backends.cuda.env import CudaEnv
 from mytorch.backends.cuda.cublas_lt import CublasLt
 from mytorch.dtype import float16, float32
 from mytorch.backends.backend_dispatcher import BackendDispatcher
+from mytorch.tensor import Tensor
 
 
-def _cuda_bmm(x, y, x_t: bool, y_t: bool, requires_grad: bool):
+def _cuda_bmm(x: Tensor, y: Tensor, x_t: bool, y_t: bool, requires_grad: bool):
     from mytorch.tensor import Tensor, InvalidDataTypeError
 
     cublas_lt = CublasLt.instance()
@@ -79,14 +80,14 @@ def _cuda_bmm(x, y, x_t: bool, y_t: bool, requires_grad: bool):
         handle,
         matmul_desc,
         alpha,
-        int(x.native_array.ptr),
+        int(x._native().ptr),
         a_desc,
-        int(y.native_array.ptr),
+        int(y._native().ptr),
         b_desc,
         beta,
-        int(z.native_array.ptr),
+        int(z._native().ptr),
         d_desc,
-        int(z.native_array.ptr),
+        int(z._native().ptr),
         d_desc,
         None,
         0,
@@ -104,8 +105,6 @@ def _cuda_bmm(x, y, x_t: bool, y_t: bool, requires_grad: bool):
 
 @BackendDispatcher.instance().register_backend_function("cuda", "mm")
 def cuda_mm(x, y):
-    from mytorch.tensor import Tensor
-
     new_x = Tensor(tensor=x)
     new_x.shape = (1, *new_x.shape)
     new_y = Tensor(tensor=y)
@@ -117,8 +116,6 @@ def cuda_mm(x, y):
 
 @BackendDispatcher.instance().register_backend_function("cuda", "mm_backward")
 def cuda_mm_backward(output_grad, x, y):
-    from mytorch.tensor import Tensor
-
     new_x = Tensor(tensor=x)
     new_x.shape = (1, *new_x.shape)
     new_y = Tensor(tensor=y)

@@ -40,7 +40,7 @@ def linear_regression(x, y, device):
 
 if __name__ == "__main__":
     x, y, k, b = make_data(256)
-    test_k, test_b = linear_regression(x, y, "cuda:0")
+    test_k, test_b = linear_regression(x, y, "cpu")
     print(f"Answer: {k}, {b}\nOutput: {test_k}, {test_b}")
 
     plt.scatter(x, y)

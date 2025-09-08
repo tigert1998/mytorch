@@ -15,7 +15,7 @@ def _elementwise_op(name: str, arg_list: list, no_grad_and_inplace: bool, x):
         x.device.index,
     )
     if no_grad_and_inplace:
-        output_tensor = np.array(0, np.uint64)
+        null_ptr = np.array(0, np.uint64)
     else:
         output_tensor = Tensor(
             dtype=x.dtype,
@@ -30,7 +30,7 @@ def _elementwise_op(name: str, arg_list: list, no_grad_and_inplace: bool, x):
             np.array(num_elements, dtype=np.int32),
             x,
             *arg_list,
-            output_tensor,
+            null_ptr if no_grad_and_inplace else output_tensor,
         ],
     )
 
