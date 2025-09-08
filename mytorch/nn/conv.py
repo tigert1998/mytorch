@@ -3,7 +3,7 @@ import math
 
 import mytorch
 from mytorch.nn.module import Module
-from mytorch.nn.parameter import Parameter, Tensor
+from mytorch.nn.parameter import Parameter
 from mytorch.nn.functional.conv import conv2d
 from mytorch.nn.init import kaiming_uniform_, _calculate_fan_in_and_fan_out
 

@@ -157,7 +157,7 @@ class DAGTracker:
             for input_tensor, grad in zip(
                 self._node_input_args[(node, idx)], input_tensors_grads
             ):
-                if input_tensor.requires_grad:
+                if input_tensor is not None and input_tensor.requires_grad:
                     if input_tensor.grad is None:
                         input_tensor.grad = grad
                     else:

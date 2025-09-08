@@ -33,8 +33,8 @@ def linear_regression(x, y, device):
         loss.backward()
         optimizer.step()
 
-    k = linear.weight.to("cpu").cpu_array.item()
-    b = linear.bias.to("cpu").cpu_array.item()
+    k = linear.weight.to("cpu").detach().numpy().item()
+    b = linear.bias.to("cpu").detach().numpy().item()
     return k, b
 
 
