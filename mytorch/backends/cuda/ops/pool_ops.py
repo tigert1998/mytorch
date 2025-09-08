@@ -26,9 +26,7 @@ def _pool_op(name, x, kernel_size, stride, padding):
         dtype=x.dtype,
         device=x.device,
     )
-    cuda_kernel_and_stream_manager = (
-        CudaEnv.instance().kernel_and_stream_manager
-    )
+    cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
     func_name = f"{name}_reference_{x.dtype.name}"
     cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
         "pool_ops.cu", func_name, x.device.index
@@ -65,9 +63,7 @@ def _pool_op_backward(name, output_grad, output, input, kernel_size, stride, pad
     input_grad = Tensor(shape=input.shape, dtype=input.dtype, device=input.device)
 
     func_name = f"{name}_backward_reference_{input.dtype.name}"
-    cuda_kernel_and_stream_manager = (
-        CudaEnv.instance().kernel_and_stream_manager
-    )
+    cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
     cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
         "pool_ops.cu", func_name, input.device.index
     )
@@ -103,4 +99,6 @@ def cuda_max_pool2d(x, kernel_size, stride, padding):
 
 @BackendDispatcher.instance().register_backend_function("cuda", "max_pool2d_backward")
 def cuda_max_pool2d_backward(output_grad, output, input, kernel_size, stride, padding):
-    return _pool_op_backward(output_grad, output, input, kernel_size, stride, padding)
+    return _pool_op_backward(
+        "max_pool2d", output_grad, output, input, kernel_size, stride, padding
+    )
