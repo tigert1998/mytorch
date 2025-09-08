@@ -8,14 +8,14 @@ from mytorch.tensor import Tensor
 
 
 def _tile_tensor_cpu(x, output_grad_shape) -> Tuple[npt.NDArray, List[int]]:
-    x_shape = (1,) * (len(output_grad_shape) - len(x.shape)) + x.shape
-    x_axis = [i for i in range(len(x_shape)) if x_shape[i] < output_grad_shape[i]]
-    x_tile_reps = [
-        output_grad_shape[i] if x_shape[i] < output_grad_shape[i] else 1
-        for i in range(len(x_shape))
+    expand_ndim = len(output_grad_shape) - len(x.shape)
+    x_expanded = x.reshape((1,) * expand_ndim + x.shape)
+    x_axis = [
+        i
+        for i in range(len(output_grad_shape))
+        if x_expanded.shape[i] != output_grad_shape[i]
     ]
-    x_tile = np.tile(x, x_tile_reps)
-    return x_tile, x_axis
+    return x_expanded, x_axis
 
 
 def _backward_cpu(output_grad: Tensor, x: Tensor, y: Tensor, func):

@@ -9,14 +9,14 @@ from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 @BackendDispatcher.instance().register_backend_function("cuda", "batch_norm2d")
 def cuda_batch_norm2d(
-        input: Tensor,
-        weight: Tensor,
-        bias: Optional[Tensor],
-        eps: float,
-        training: bool,
-        momentum: float,
-        running_mean: Optional[Tensor],
-        running_var: Optional[Tensor]
+    input: Tensor,
+    weight: Optional[Tensor],
+    bias: Optional[Tensor],
+    eps: float,
+    training: bool,
+    momentum: float,
+    running_mean: Optional[Tensor],
+    running_var: Optional[Tensor],
 ):
     batch_size, channels, height, width = input.shape
 

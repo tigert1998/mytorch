@@ -121,18 +121,15 @@ class BatchNorm2d(_BatchNormBase):
         )
 
     def forward(self, x):
-        if x.device.type == "cpu":
-            return super().forward(x)
-        else:
-            from mytorch.nn.functional.batch_norm import _batch_norm2d
+        from mytorch.nn.functional.batch_norm import _batch_norm2d
 
-            return _batch_norm2d(
-                x,
-                self.weight,
-                self.bias,
-                self.eps,
-                self.training,
-                self.momentum,
-                self.running_mean,
-                self.running_var,
-            )
+        return _batch_norm2d(
+            x,
+            self.weight,
+            self.bias,
+            self.eps,
+            self.training,
+            self.momentum,
+            self.running_mean,
+            self.running_var,
+        )
