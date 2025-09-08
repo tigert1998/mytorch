@@ -101,7 +101,7 @@ def cpu_div(x: Tensor, y: Tensor):
         shape=shape,
         device=x.device,
     )
-    output_tensor._cpu_array = x._numpy() * y._numpy()
+    output_tensor._cpu_array = x._numpy() / y._numpy()
     return output_tensor
 
 

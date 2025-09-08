@@ -5,14 +5,14 @@ from mytorch.dtype import float32
 
 class _BatchNormBase(Module):
     def __init__(
-            self,
-            num_features,
-            eps=1e-05,
-            momentum=0.1,
-            affine=True,
-            track_running_stats=True,
-            device="cpu",
-            dtype=float32,
+        self,
+        num_features,
+        eps=1e-05,
+        momentum=0.1,
+        affine=True,
+        track_running_stats=True,
+        device="cpu",
+        dtype=float32,
     ):
         super().__init__()
 
@@ -69,7 +69,7 @@ class _BatchNormBase(Module):
                     + self.momentum * batch_var.reshape((self.num_features,))
                 )
 
-            x_normalized = (x - batch_mean) / (batch_var + self.eps) ** 0.5
+            x_normalized = (x - batch_mean) / ((batch_var + self.eps) ** 0.5)
         else:
             if self.track_running_stats:
                 mean = self.running_mean.reshape(reshape_shape)
@@ -90,14 +90,14 @@ class _BatchNormBase(Module):
 
 class BatchNorm1d(_BatchNormBase):
     def __init__(
-            self,
-            num_features,
-            eps=0.00001,
-            momentum=0.1,
-            affine=True,
-            track_running_stats=True,
-            device="cpu",
-            dtype=float32,
+        self,
+        num_features,
+        eps=0.00001,
+        momentum=0.1,
+        affine=True,
+        track_running_stats=True,
+        device="cpu",
+        dtype=float32,
     ):
         super().__init__(
             num_features, eps, momentum, affine, track_running_stats, device, dtype
@@ -106,14 +106,14 @@ class BatchNorm1d(_BatchNormBase):
 
 class BatchNorm2d(_BatchNormBase):
     def __init__(
-            self,
-            num_features,
-            eps=0.00001,
-            momentum=0.1,
-            affine=True,
-            track_running_stats=True,
-            device="cpu",
-            dtype=float32,
+        self,
+        num_features,
+        eps=0.00001,
+        momentum=0.1,
+        affine=True,
+        track_running_stats=True,
+        device="cpu",
+        dtype=float32,
     ):
         super().__init__(
             num_features, eps, momentum, affine, track_running_stats, device, dtype
