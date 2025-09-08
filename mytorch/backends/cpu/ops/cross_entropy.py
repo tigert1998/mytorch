@@ -5,6 +5,13 @@ from mytorch.backends.backend_dispatcher import BackendDispatcher
 from mytorch.dtype import int64
 
 
+def _softmax(input):
+    input = input - np.max(input, axis=1, keepdims=True)
+    return np.exp(input) / np.sum(
+        np.exp(input), axis=1, keepdims=True
+    )
+
+
 @BackendDispatcher.instance().register_backend_function("cpu", "cross_entropy")
 def cpu_cross_entropy(input: Tensor, target: Tensor):
     if target.dtype != int64:
@@ -14,9 +21,7 @@ def cpu_cross_entropy(input: Tensor, target: Tensor):
         shape=(1,),
         device=input.device,
     )
-    softmax = np.exp(input._numpy()) / np.sum(
-        np.exp(input._numpy()), axis=1, keepdims=True
-    )
+    softmax = _softmax(input._numpy())
     log = [-np.log(softmax[i][target._numpy()[i]]) for i in range(target.shape[0])]
     tensor._cpu_array = np.array(np.mean(log), dtype=input.dtype.np_dtype)
 
@@ -33,10 +38,8 @@ def cpu_cross_entropy_backward(output_grad: Tensor, input: Tensor, target: Tenso
         device=input.device,
     )
 
-    softmax = np.exp(input._numpy()) / np.sum(
-        np.exp(input._numpy()), axis=1, keepdims=True
-    )
-    target_onehot = np.eye(num_classes, dtype=input.dtype)[target._numpy()]
+    softmax = _softmax(input._numpy())
+    target_onehot = np.eye(num_classes, dtype=input.dtype.np_dtype)[target._numpy()]
     input_grad._cpu_array = (
             (softmax - target_onehot) * output_grad._numpy() / batch_size
     )

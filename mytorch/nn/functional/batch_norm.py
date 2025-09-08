@@ -7,7 +7,7 @@ from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 def _batch_norm2d(
         input: Tensor,
-        weight: Tensor,
+        weight: Optional[Tensor],
         bias: Optional[Tensor],
         eps: float,
         training: bool,

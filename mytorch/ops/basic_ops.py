@@ -96,7 +96,7 @@ def reshape(x: Tensor, shape: Tuple[int, ...]) -> Tensor:
 
 @DAGTracker.instance().register_backward_function("reshape")
 def reshape_backward(output_grad: Tensor, x: Tensor, shape: Tuple[int, ...]):
-    input_grad = Tensor(tensor=output_grad)
-    input_grad.shape = x.shape
+    func = BackendDispatcher.instance().dispatch(x.device.type, "reshape")
+    input_grad = func(output_grad, x.shape)
 
     return [input_grad]

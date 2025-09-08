@@ -1,3 +1,4 @@
+from .ops.conv import cpu_conv2d, cpu_conv2d_backward
 from .ops.mm import cpu_mm, cpu_mm_backward, cpu_bmm, cpu_bmm_backward
 from .ops.permute import cpu_permute, cpu_permute_backward
 from .ops.reshape import cpu_reshape
@@ -15,6 +16,7 @@ from .ops.broadcast_binary_ops import (
     cpu_copy,
 )
 from .ops.cast import cpu_cast
+from .ops.max import cpu_max
 from .ops.cat import cpu_cat, cpu_cat_backward
 from .ops.eq import cpu_eq
 from .ops.elementwise_ops import (
@@ -26,4 +28,5 @@ from .ops.elementwise_ops import (
 )
 from .ops.reduce_ops import cpu_sum_scale, cpu_sum_scale_backward
 from .ops.cross_entropy import cpu_cross_entropy, cpu_cross_entropy_backward
+from .ops.pool_ops import cpu_max_pool2d, cpu_max_pool2d_backward
 from .ops.sgd import cpu_sgd
