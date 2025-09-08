@@ -96,63 +96,63 @@ def _broadcast_binary_op_backward(name, output_grad, x, y, args):
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "add")
-def add(x, y, alpha):
+def cuda_add(x, y, alpha):
     return _broadcast_binary_op(
         "add", [np.array(alpha, dtype=x.dtype.np_dtype)], False, x, y
     )
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "add_backward")
-def add_backward(output_grad, x, y, alpha):
+def cuda_add_backward(output_grad, x, y, alpha):
     return _broadcast_binary_op_backward(
         "add", output_grad, x, y, [np.array(alpha, dtype=x.dtype.np_dtype)]
     )
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "sub")
-def sub(x, y, alpha):
+def cuda_sub(x, y, alpha):
     return _broadcast_binary_op(
         "sub", [np.array(alpha, dtype=x.dtype.np_dtype)], False, x, y
     )
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "sub_backward")
-def sub_backward(output_grad, x, y, alpha):
+def cuda_sub_backward(output_grad, x, y, alpha):
     return _broadcast_binary_op_backward(
         "sub", output_grad, x, y, [np.array(alpha, dtype=x.dtype.np_dtype)]
     )
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "mul")
-def mul(x, y):
+def cuda_mul(x, y):
     return _broadcast_binary_op("mul", [], False, x, y)
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "mul_backward")
-def mul_backward(output_grad, x, y):
+def cuda_mul_backward(output_grad, x, y):
     return _broadcast_binary_op_backward("mul", output_grad, x, y, [])
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "div")
-def div(x, y):
+def cuda_div(x, y):
     return _broadcast_binary_op("div", [], False, x, y)
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "div_backward")
-def div_backward(output_grad, x, y):
+def cuda_div_backward(output_grad, x, y):
     return _broadcast_binary_op_backward("div", output_grad, x, y, [])
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "pow")
-def pow(x, y):
+def cuda_pow(x, y):
     return _broadcast_binary_op("pow", [], False, x, y)
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "pow_backward")
-def pow_backward(output_grad, x, y):
+def cuda_pow_backward(output_grad, x, y):
     return _broadcast_binary_op_backward("pow", output_grad, x, y, [])
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "copy")
-def copy(x, y):
+def cuda_copy(x, y):
     _broadcast_binary_op("copy", [], True, x, y)

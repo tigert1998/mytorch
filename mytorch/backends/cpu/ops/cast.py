@@ -2,7 +2,7 @@ from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "cast")
-def cast(x, dtype):
+def cpu_cast(x, dtype):
     from mytorch.tensor import Tensor
 
     output_tensor = Tensor(

@@ -4,18 +4,18 @@ from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "fill")
-def _fill(x, value):
+def cpu_fill(x, value):
     np.copyto(x._numpy(), value)
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "normal")
-def _normal(x, seed, mean, stddev):
+def cpu_normal(x, seed, mean, stddev):
     np.random.seed(seed)
     x.cpu_array = np.random.normal(mean, stddev, x.shape).astype(x.dtype.np_dtype)
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "uniform")
-def _uniform(x, seed, a, b):
+def cpu_uniform(x, seed, a, b):
     np.random.seed(seed)
     x.cpu_array = np.random.uniform(low=a, high=b, size=x.shape).astype(
         x.dtype.np_dtype
@@ -23,7 +23,7 @@ def _uniform(x, seed, a, b):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "relu")
-def _relu(x):
+def cpu_relu(x):
     from mytorch.tensor import Tensor
 
     new_x = Tensor(device=x.device, shape=x.shape, dtype=x.dtype)
@@ -32,7 +32,7 @@ def _relu(x):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "relu_backward")
-def _relu_backward(output_grad, x):
+def cpu_relu_backward(output_grad, x):
     from mytorch.tensor import Tensor
 
     x_grad = Tensor(device=x.device, shape=x.shape, dtype=x.dtype)

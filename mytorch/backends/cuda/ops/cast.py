@@ -5,7 +5,7 @@ from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "cast")
-def cast(x, dtype):
+def cuda_cast(x, dtype):
     from mytorch.tensor import Tensor, shape_size
 
     cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager

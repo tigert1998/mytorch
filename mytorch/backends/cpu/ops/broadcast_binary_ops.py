@@ -35,7 +35,7 @@ def _backward_cpu(output_grad, x, y, func):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "add")
-def add(x, y, alpha):
+def cpu_add(x, y, alpha):
     from mytorch.tensor import Tensor
 
     shape = calculate_broadcast_shape(x.shape, y.shape)
@@ -49,7 +49,7 @@ def add(x, y, alpha):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "add_backward")
-def add_backward(output_grad, x, y, alpha):
+def cpu_add_backward(output_grad, x, y, alpha):
     def func(x, y, output_grad):
         return output_grad, output_grad * alpha
 
@@ -57,7 +57,7 @@ def add_backward(output_grad, x, y, alpha):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "sub")
-def sub(x, y, alpha):
+def cpu_sub(x, y, alpha):
     from mytorch.tensor import Tensor
 
     shape = calculate_broadcast_shape(x.shape, y.shape)
@@ -71,7 +71,7 @@ def sub(x, y, alpha):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "sub_backward")
-def sub_backward(output_grad, x, y, alpha):
+def cpu_sub_backward(output_grad, x, y, alpha):
     def func(x, y, output_grad):
         return output_grad, -output_grad * alpha
 
@@ -79,7 +79,7 @@ def sub_backward(output_grad, x, y, alpha):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "mul")
-def mul(x, y):
+def cpu_mul(x, y):
     from mytorch.tensor import Tensor
 
     shape = calculate_broadcast_shape(x.shape, y.shape)
@@ -93,7 +93,7 @@ def mul(x, y):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "mul_backward")
-def mul_backward(output_grad, x, y):
+def cpu_mul_backward(output_grad, x, y):
     def func(x, y, output_grad):
         return y * output_grad, x * output_grad
 
@@ -101,7 +101,7 @@ def mul_backward(output_grad, x, y):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "div")
-def div(x, y):
+def cpu_div(x, y):
     from mytorch.tensor import Tensor
 
     shape = calculate_broadcast_shape(x.shape, y.shape)
@@ -115,7 +115,7 @@ def div(x, y):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "div_backward")
-def div_backward(output_grad, x, y):
+def cpu_div_backward(output_grad, x, y):
     def func(x, y, output_grad):
         x_grad_cpu_array = 1 / y * output_grad
         y_grad_cpu_array = -x / (y**2) * output_grad
@@ -125,7 +125,7 @@ def div_backward(output_grad, x, y):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "pow")
-def pow(x, y):
+def cpu_pow(x, y):
     from mytorch.tensor import Tensor
 
     shape = calculate_broadcast_shape(x.shape, y.shape)
@@ -139,7 +139,7 @@ def pow(x, y):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "pow_backward")
-def pow_backward(output_grad, x, y):
+def cpu_pow_backward(output_grad, x, y):
     def func(x, y, output_grad):
         x_grad_cpu_array = y * np.power(x, y - 1) * output_grad
         y_grad_cpu_array = np.power(x, y) * np.log(x) * output_grad
@@ -149,5 +149,5 @@ def pow_backward(output_grad, x, y):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "copy")
-def copy(x, y):
+def cpu_copy(x, y):
     np.copyto(x.cpu_array, y.cpu_array)

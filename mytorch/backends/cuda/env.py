@@ -474,7 +474,7 @@ class CudaMemory:
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "allocate_memory")
-def allocate_memory(device_id: int, size: int) -> CudaMemory:
+def cuda_allocate_memory(device_id: int, size: int) -> CudaMemory:
     return CudaMemory(device_id, size)
 
 

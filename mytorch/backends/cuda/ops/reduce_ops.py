@@ -100,12 +100,12 @@ def _reduce_op_backward(name, output_grad, tensor, dim, keepdim, args):
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "sum_scale")
-def _sum_scale(x, dim, keepdim, scale):
+def cuda_sum_scale(x, dim, keepdim, scale):
     return _reduce_op("sum_scale", [np.array(scale, x.dtype.np_dtype)], x, dim, keepdim)
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "sum_scale_backward")
-def _sum_scale_backward(output_grad, x, dim, keepdim, scale):
+def cuda_sum_scale_backward(output_grad, x, dim, keepdim, scale):
     return _reduce_op_backward(
         "sum_scale", output_grad, x, dim, keepdim, [np.array(scale, x.dtype.np_dtype)]
     )

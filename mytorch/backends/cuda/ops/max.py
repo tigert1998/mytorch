@@ -7,7 +7,7 @@ from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "max")
-def max(tensor, dim, keepdim):
+def cuda_max(tensor, dim, keepdim):
     from mytorch.tensor import Tensor, shape_size
 
     if dim is not None and not isinstance(dim, int):

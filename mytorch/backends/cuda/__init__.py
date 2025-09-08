@@ -3,22 +3,28 @@ from .ops.mm import cuda_mm, cuda_mm_backward, cuda_bmm, cuda_bmm_backward
 from .ops.permute import cuda_permute, cuda_permute_backward
 from .ops.reshape import cuda_reshape
 from .ops.broadcast_binary_ops import (
-    add,
-    add_backward,
-    sub,
-    sub_backward,
-    mul,
-    mul_backward,
-    div,
-    div_backward,
-    pow,
-    pow_backward,
-    copy,
+    cuda_add,
+    cuda_add_backward,
+    cuda_sub,
+    cuda_sub_backward,
+    cuda_mul,
+    cuda_mul_backward,
+    cuda_div,
+    cuda_div_backward,
+    cuda_pow,
+    cuda_pow_backward,
+    cuda_copy,
 )
-from .ops.cast import cast
-from .ops.max import max
-from .ops.eq import eq
-from .ops.elementwise_ops import _fill, _uniform, _normal, _relu, _relu_backward
-from .ops.reduce_ops import _sum_scale, _sum_scale_backward
+from .ops.cast import cuda_cast
+from .ops.max import cuda_max
+from .ops.eq import cuda_eq
+from .ops.elementwise_ops import (
+    cuda_fill,
+    cuda_uniform,
+    cuda_normal,
+    cuda_relu,
+    cuda_relu_backward,
+)
+from .ops.reduce_ops import cuda_sum_scale, cuda_sum_scale_backward
 
-from .env import allocate_memory
+from .env import cuda_allocate_memory

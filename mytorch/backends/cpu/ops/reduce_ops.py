@@ -5,7 +5,7 @@ from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "sum_scale")
-def _sum_scale(tensor, dim, keepdim, scale):
+def cpu_sum_scale(tensor, dim, keepdim, scale):
     from mytorch.tensor import Tensor
 
     output_shape = calculate_reduce_shape(tensor.shape, dim, keepdim)
@@ -17,7 +17,7 @@ def _sum_scale(tensor, dim, keepdim, scale):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "sum_scale_backward")
-def _sum_scale_backward(output_grad, tensor, dim, keepdim, scale):
+def cpu_sum_scale_backward(output_grad, tensor, dim, keepdim, scale):
     from mytorch.tensor import Tensor
 
     input_grad = Tensor(shape=tensor.shape, device=tensor.device, dtype=tensor.dtype)

@@ -5,7 +5,7 @@ from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "eq")
-def eq(x, y):
+def cpu_eq(x, y):
     from mytorch.tensor import Tensor
 
     output_tensor = Tensor(

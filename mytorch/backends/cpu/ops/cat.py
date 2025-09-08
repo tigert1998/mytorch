@@ -5,7 +5,7 @@ from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "cat")
-def cat(tensors, dim):
+def cpu_cat(tensors, dim):
     from mytorch.tensor import Tensor
 
     dtype = tensors[0].dtype
@@ -25,7 +25,7 @@ def cat(tensors, dim):
 
 
 @BackendDispatcher.instance().register_backend_function("cpu", "cat_backward")
-def cat_backward(output_grad, *args):
+def cpu_cat_backward(output_grad, *args):
     from mytorch.tensor import Tensor
 
     tensors = args[:-1]

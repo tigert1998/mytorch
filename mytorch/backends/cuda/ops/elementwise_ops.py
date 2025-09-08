@@ -66,12 +66,12 @@ def _elementwise_op_backward(name, output_grad, x, args):
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "fill")
-def _fill(x, value):
+def cuda_fill(x, value):
     _elementwise_op("fill", [np.array(value, dtype=x.dtype.np_dtype)], True, x)
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "normal")
-def _normal(x, seed, mean, stddev):
+def cuda_normal(x, seed, mean, stddev):
     _elementwise_op(
         "normal",
         [
@@ -85,7 +85,7 @@ def _normal(x, seed, mean, stddev):
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "uniform")
-def _uniform(x, seed, a, b):
+def cuda_uniform(x, seed, a, b):
     _elementwise_op(
         "uniform",
         [
@@ -99,10 +99,10 @@ def _uniform(x, seed, a, b):
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "relu")
-def _relu(x):
+def cuda_relu(x):
     return _elementwise_op("relu", [], False, x)
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "relu_backward")
-def _relu_backward(output_grad, x):
+def cuda_relu_backward(output_grad, x):
     return _elementwise_op_backward("relu", output_grad, x, [])

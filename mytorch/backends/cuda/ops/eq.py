@@ -6,7 +6,7 @@ from mytorch.backends.backend_dispatcher import BackendDispatcher
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "eq")
-def eq(x, y):
+def cuda_eq(x, y):
     from mytorch.tensor import Tensor, shape_size
 
     cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
