@@ -26,5 +26,9 @@ def cpu_sum_scale_backward(output_grad, tensor, dim, keepdim, scale):
         input_grad._cpu_array = output_grad._numpy() * scale
     else:
         input_grad._cpu_array = np.expand_dims(output_grad._numpy(), dim) * scale
+    input_grad._cpu_array = np.tile(
+        input_grad._cpu_array,
+        reps=[i // j for i, j in zip(tensor.shape, input_grad._cpu_array.shape)],
+    )
 
     return [input_grad]

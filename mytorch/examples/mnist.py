@@ -46,7 +46,7 @@ def get_transform():
     )
 
 
-def train_mnist(ckpt, save_ckpt):
+def train_mnist(device, ckpt, save_ckpt):
     transform = get_transform()
 
     train_dataset = MNIST("./datasets", True, transform=transform)
@@ -55,12 +55,12 @@ def train_mnist(ckpt, save_ckpt):
     test_data_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
     model = CNN()
-    model.to("cuda:0")
+    model.to(device)
     optimizer = optim.SGD(model.parameters(), lr=1e-1)
 
     last_epoch = -1
     if ckpt is not None:
-        ckpt = mytorch.load(ckpt, map_location="cuda:0")
+        ckpt = mytorch.load(ckpt, map_location=device)
         optimizer.load_state_dict(ckpt["optimizer"])
         model.load_state_dict(ckpt["model"])
         last_epoch = ckpt["epoch"]
@@ -70,8 +70,8 @@ def train_mnist(ckpt, save_ckpt):
     for epoch in range(last_epoch + 1, last_epoch + 2):
         model.train()
         for i, (x, y) in enumerate(train_data_loader):
-            input_tensor = x.to("cuda:0")
-            target = y.to("cuda:0", mytorch.int64)
+            input_tensor = x.to(device)
+            target = y.to(device, mytorch.int64)
             logits = model(input_tensor)
             loss = F.cross_entropy(logits, target)
             optimizer.zero_grad()
@@ -82,22 +82,22 @@ def train_mnist(ckpt, save_ckpt):
                     logits.max(dim=1)[1].eq(target).to(dtype=mytorch.float32).mean()
                 ).item()
                 print(
-                    f"Epoch #{epoch}, step #{i}, accuracy: {accuracy* 100:0.2f}%, loss: {loss:0.4f}"
+                    f"Epoch #{epoch}, step #{i}, accuracy: {accuracy * 100:0.2f}%, loss: {loss:0.4f}"
                 )
             optimizer.step()
 
         model.eval()
         correct = 0
         for i, (x, y) in enumerate(test_data_loader):
-            input_tensor = x.to("cuda:0")
-            target = y.to("cuda:0", mytorch.int64)
+            input_tensor = x.to(device)
+            target = y.to(device, mytorch.int64)
             with mytorch.no_grad():
                 logits = model(input_tensor)
             correct += (
                 logits.max(dim=1)[1].eq(target).to(dtype=mytorch.float32).sum().item()
             )
         accuracy = correct / len(test_dataset)
-        print(f"Epoch #{epoch}, test accuracy: {accuracy *100:0.2f}%")
+        print(f"Epoch #{epoch}, test accuracy: {accuracy * 100:0.2f}%")
 
         if save_ckpt:
             mytorch.save(
@@ -111,23 +111,23 @@ def train_mnist(ckpt, save_ckpt):
             )
 
 
-def eval_test_set(ckpt, image_ids):
+def eval_test_set(device, ckpt, image_ids):
     import matplotlib.pyplot as plt
 
     transform = get_transform()
     test_dataset = MNIST("./datasets", False)
     model = CNN()
-    model.to("cuda:0")
-    ckpt = mytorch.load(ckpt, map_location="cuda:0")
+    model.to(device)
+    ckpt = mytorch.load(ckpt, map_location=device)
     model.load_state_dict(ckpt["model"])
 
     model.eval()
     for i in image_ids:
-        tensor = transform(test_dataset[i][0]).to("cuda:0")
+        tensor = transform(test_dataset[i][0]).to(device)
         tensor = tensor.reshape((1, *tensor.shape))
         with mytorch.no_grad():
             output_tensor = model(tensor)
-        logits = output_tensor.to("cpu").detach().numpy()[0]
+        logits = output_tensor.to(device).detach().numpy()[0]
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
         fig.suptitle(f"MNIST Test Set Image #{i}", fontsize=16)
@@ -153,9 +153,10 @@ if __name__ == "__main__":
     parser.add_argument(
         "--save-ckpt", help="The checkpoint path to save after training."
     )
+    parser.add_argument("--device", default="cuda:0")
     args = parser.parse_args()
 
     if args.eval is not None:
-        eval_test_set(args.ckpt, list(args.eval))
+        eval_test_set(args.device, args.ckpt, list(args.eval))
     else:
-        train_mnist(args.ckpt, args.save_ckpt)
+        train_mnist(args.device, args.ckpt, args.save_ckpt)

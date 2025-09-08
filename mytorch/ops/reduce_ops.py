@@ -47,7 +47,8 @@ def var(x: Tensor, dim=None, correction=1, keepdim=False) -> Tensor:
     elif isinstance(dim, int):
         dim = (dim,)
     scale = 1 / (shape_size([x.shape[i] for i in dim]) - correction)
-    return _sum_scale((x - mean(x, dim=dim, keepdim=True)) ** 2, dim, keepdim, scale)
+    x_minus_mean = x - mean(x, dim=dim, keepdim=True)
+    return _sum_scale(x_minus_mean**2, dim, keepdim, scale)
 
 
 def std(x: Tensor, dim=None, correction=1, keepdim=False) -> Tensor:
