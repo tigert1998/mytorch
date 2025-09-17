@@ -17,7 +17,7 @@ def _cast(x: Tensor, dtype: DType):
     output_tensor = func(x, dtype)
     output_tensor.requires_grad = (
         x.requires_grad and x.dtype.is_floating and dtype.is_floating
-    )
+    ) and not DAGTracker.instance().no_grad
 
     if output_tensor.requires_grad:
         DAGTracker.instance().add_node("cast", [x, dtype], [output_tensor])

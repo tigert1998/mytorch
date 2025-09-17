@@ -30,7 +30,7 @@ def conv2d(input: Tensor, weight: Tensor, bias=None, stride=1, padding=0) -> Ten
         input.requires_grad
         or weight.requires_grad
         or (bias is not None and bias.requires_grad)
-    )
+    ) and not DAGTracker.instance().no_grad
 
     if tensor.requires_grad:
         DAGTracker.instance().add_node(

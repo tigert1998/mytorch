@@ -15,7 +15,9 @@ def mm(x: Tensor, y: Tensor) -> Tensor:
 
     func = BackendDispatcher.instance().dispatch(x.device.type, "mm")
     z = func(x, y)
-    z.requires_grad = x.requires_grad or y.requires_grad
+    z.requires_grad = (
+        x.requires_grad or y.requires_grad
+    ) and not DAGTracker.instance().no_grad
 
     if z.requires_grad:
         DAGTracker.instance().add_node("mm", [x, y], [z])
@@ -40,7 +42,9 @@ def bmm(x: Tensor, y: Tensor) -> Tensor:
 
     func = BackendDispatcher.instance().dispatch(x.device.type, "bmm")
     z = func(x, y)
-    z.requires_grad = x.requires_grad or y.requires_grad
+    z.requires_grad = (
+        x.requires_grad or y.requires_grad
+    ) and not DAGTracker.instance().no_grad
 
     if z.requires_grad:
         DAGTracker.instance().add_node("bmm", [x, y], [z])
@@ -66,7 +70,7 @@ def permute(x: Tensor, dims: Tuple[int, ...]) -> Tensor:
 
     func = BackendDispatcher.instance().dispatch(x.device.type, "permute")
     output_tensor = func(x, dims)
-    output_tensor.requires_grad = x.requires_grad
+    output_tensor.requires_grad = x.requires_grad and not DAGTracker.instance().no_grad
 
     if output_tensor.requires_grad:
         DAGTracker.instance().add_node("permute", [x, dims], [output_tensor])
@@ -84,7 +88,7 @@ def permute_backward(output_grad: Tensor, x: Tensor, dims: Tuple[int, ...]):
 def reshape(x: Tensor, shape: Tuple[int, ...]) -> Tensor:
     func = BackendDispatcher.instance().dispatch(x.device.type, "reshape")
     output_tensor = func(x, shape)
-    output_tensor.requires_grad = x.requires_grad
+    output_tensor.requires_grad = x.requires_grad and not DAGTracker.instance().no_grad
 
     if output_tensor.requires_grad:
         DAGTracker.instance().add_node(

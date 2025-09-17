@@ -5,7 +5,7 @@ from mytorch.autograd import DAGTracker
 def max_pool2d(x, kernel_size, stride=None, padding=0):
     func = BackendDispatcher.instance().dispatch(x.device.type, "max_pool2d")
     tensor = func(x, kernel_size, stride, padding)
-    tensor.requires_grad = x.requires_grad
+    tensor.requires_grad = x.requires_grad and not DAGTracker.instance().no_grad
     if tensor.requires_grad:
         DAGTracker.instance().add_node(
             "max_pool2d", [x, kernel_size, stride, padding], [tensor], [tensor]

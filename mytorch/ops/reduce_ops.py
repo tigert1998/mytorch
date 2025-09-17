@@ -13,7 +13,7 @@ def _sum_scale(x: Tensor, dim=None, keepdim=False, scale=1) -> Tensor:
         dim = (dim,)
     func = BackendDispatcher.instance().dispatch(x.device.type, "sum_scale")
     output_tensor = func(x, dim, keepdim, scale)
-    output_tensor.requires_grad = x.requires_grad
+    output_tensor.requires_grad = x.requires_grad and not DAGTracker.instance().no_grad
     if output_tensor.requires_grad:
         DAGTracker.instance().add_node(
             "sum_scale", [x, dim, keepdim, scale], [output_tensor]

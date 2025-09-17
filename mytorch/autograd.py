@@ -17,13 +17,10 @@ class DAGTracker:
 
         return decorator
 
-    def no_grad(self, value):
-        self._no_grad = value
-
     def __init__(self):
         self._reset_dag()
         self._backward_funcs = {}
-        self._no_grad = False
+        self.no_grad = False
 
     def _reset_dag(self):
         self._tensor_from_node = {}
@@ -34,9 +31,6 @@ class DAGTracker:
         self._node_type_counts = {}
 
     def add_node(self, name, input_args, output_tensors, helper_tensors=None):
-        if self._no_grad:
-            return
-
         from mytorch.tensor import Tensor
 
         index = self._node_type_counts.get(name, 0)
@@ -185,25 +179,18 @@ class DAGTracker:
 
 
 class NoGrad:
-    _instance = None
     _ref_count = 0
-
-    @classmethod
-    def instance(cls):
-        if cls._instance is None:
-            cls._instance = NoGrad()
-        return cls._instance
 
     def __enter__(self):
         NoGrad._ref_count += 1
         if NoGrad._ref_count == 1:
-            DAGTracker.instance().no_grad(True)
+            DAGTracker.instance().no_grad = True
 
     def __exit__(self, exc_type, exc_value, traceback):
         NoGrad._ref_count -= 1
         if NoGrad._ref_count == 0:
-            DAGTracker.instance().no_grad(False)
+            DAGTracker.instance().no_grad = False
 
 
 def no_grad():
-    return NoGrad.instance()
+    return NoGrad()

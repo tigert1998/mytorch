@@ -6,7 +6,9 @@ def max(tensor, dim=None, keepdim=False):
     func = BackendDispatcher.instance().dispatch(tensor.device.type, "max")
     tensors = func(tensor, dim, keepdim)
     output_tensor, indices_tensor = tensors
-    output_tensor.requires_grad = tensor.requires_grad
+    output_tensor.requires_grad = (
+        tensor.requires_grad and not DAGTracker.instance().no_grad
+    )
     if output_tensor.requires_grad:
         DAGTracker.instance().add_node(
             "max", [tensor, dim, keepdim], [output_tensor], [indices_tensor]

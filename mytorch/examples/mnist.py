@@ -76,11 +76,12 @@ def train_mnist(device, ckpt, save_ckpt):
             loss = F.cross_entropy(logits, target)
             optimizer.zero_grad()
             loss.backward()
-            if (i + 1) % 16 == 0:
+            if (i + 1) % 128 == 0:
                 loss = loss.item()
-                accuracy = (
-                    logits.max(dim=1)[1].eq(target).to(dtype=mytorch.float32).mean()
-                ).item()
+                with mytorch.no_grad():
+                    accuracy = (
+                        logits.max(dim=1)[1].eq(target).to(dtype=mytorch.float32).mean()
+                    ).item()
                 print(
                     f"Epoch #{epoch}, step #{i}, accuracy: {accuracy * 100:0.2f}%, loss: {loss:0.4f}"
                 )
