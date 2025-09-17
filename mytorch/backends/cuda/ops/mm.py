@@ -7,7 +7,7 @@ from mytorch.backends.backend_dispatcher import BackendDispatcher
 from mytorch.tensor import Tensor
 
 
-def _cuda_bmm(x: Tensor, y: Tensor, x_t: bool, y_t: bool, requires_grad: bool):
+def _cuda_bmm(x: Tensor, y: Tensor, x_t: bool, y_t: bool):
     from mytorch.tensor import Tensor, InvalidDataTypeError
 
     cublas_lt = CublasLt.instance()
@@ -68,7 +68,6 @@ def _cuda_bmm(x: Tensor, y: Tensor, x_t: bool, y_t: bool, requires_grad: bool):
         shape=(x.shape[0], z_rows, z_cols),
         dtype=x.dtype,
         device=x.device,
-        requires_grad=requires_grad,
     )
 
     if x.device.type != "cuda" or y.device.type != "cuda" or z.device.type != "cuda":
@@ -109,7 +108,7 @@ def cuda_mm(x, y):
     new_x.shape = (1, *new_x.shape)
     new_y = Tensor(tensor=y)
     new_y.shape = (1, *new_y.shape)
-    z = _cuda_bmm(new_x, new_y, False, False, False)
+    z = _cuda_bmm(new_x, new_y, False, False)
     z.shape = z.shape[1:]
     return z
 
@@ -122,8 +121,8 @@ def cuda_mm_backward(output_grad, x, y):
     new_y.shape = (1, *new_y.shape)
     new_output_grad = Tensor(tensor=output_grad)
     new_output_grad.shape = (1, *new_output_grad.shape)
-    x_grad = _cuda_bmm(new_output_grad, new_y, False, True, False)
-    y_grad = _cuda_bmm(new_x, new_output_grad, True, False, False)
+    x_grad = _cuda_bmm(new_output_grad, new_y, False, True)
+    y_grad = _cuda_bmm(new_x, new_output_grad, True, False)
     x_grad.shape = x_grad.shape[1:]
     y_grad.shape = y_grad.shape[1:]
     return x_grad, y_grad
@@ -131,11 +130,11 @@ def cuda_mm_backward(output_grad, x, y):
 
 @BackendDispatcher.instance().register_backend_function("cuda", "bmm")
 def cuda_bmm(x, y):
-    return _cuda_bmm(x, y, False, False, False)
+    return _cuda_bmm(x, y, False, False)
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "bmm_backward")
 def cuda_bmm_backward(output_grad, x, y):
-    x_grad = _cuda_bmm(output_grad, y, False, True, False)
-    y_grad = _cuda_bmm(x, output_grad, True, False, False)
+    x_grad = _cuda_bmm(output_grad, y, False, True)
+    y_grad = _cuda_bmm(x, output_grad, True, False)
     return x_grad, y_grad
