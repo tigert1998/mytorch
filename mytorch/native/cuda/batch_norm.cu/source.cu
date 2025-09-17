@@ -283,7 +283,7 @@ __global__ void batch_norm2d_backward_reference(int batch_size, int channels,
                                       input, mean, var, eps, weight_grad,
                                       bias_grad, output_grad);
 
-  grid = {1, 16, 1};
+  grid = {1, 32, 1};
   block = {1024, 1, 1};
   BackNormBackwardElementwisePass<<<grid, block>>>(
       batch_size, channels, height, width, input, mean, var, eps, weight,
