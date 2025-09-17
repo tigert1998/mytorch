@@ -42,5 +42,4 @@ python -m mytorch.examples.mnist --ckpt ./ckpt.mt --eval 0 1 2 3 4
 
 ## Drawbacks
 
-- Currently, many operators are not supported on CPU, including many essential ones, e.g., Conv. MyTorch will raise `NotImplementedError` when calling these operators.
-- Now MyTorch is slightly slower than PyTorch due to lack of finegrained optimization. In the aforementioned MNIST example, MyTorch (41s on a laptop RTX 4060) is around 25% slower than PyTorch (33s) when running 3 epochs.
+- Now MyTorch is slightly slower than PyTorch due to lack of finegrained optimization. In the aforementioned MNIST example, MyTorch (44s on a laptop RTX 4060) is around 30% slower than PyTorch (34s) when running 3 epochs.
