@@ -184,9 +184,26 @@ class DAGTracker:
             del self._node_helpers[(node, idx)]
 
 
-class no_grad:
+class NoGrad:
+    _instance = None
+    _ref_count = 0
+
+    @classmethod
+    def instance(cls):
+        if cls._instance is None:
+            cls._instance = NoGrad()
+        return cls._instance
+
     def __enter__(self):
-        DAGTracker.instance().no_grad(True)
+        NoGrad._ref_count += 1
+        if NoGrad._ref_count == 1:
+            DAGTracker.instance().no_grad(True)
 
     def __exit__(self, exc_type, exc_value, traceback):
-        DAGTracker.instance().no_grad(False)
+        NoGrad._ref_count -= 1
+        if NoGrad._ref_count == 0:
+            DAGTracker.instance().no_grad(False)
+
+
+def no_grad():
+    return NoGrad.instance()

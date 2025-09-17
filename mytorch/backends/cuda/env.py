@@ -99,9 +99,7 @@ class CudaCompiler:
     def __init__(self, cuda_context_manager):
         self._cuda_context_manager = cuda_context_manager
         cuda_path = os.environ["CUDA_PATH"]
-        cudadevrt_paths = glob(
-            f"{cuda_path}/lib*/**/*cudadevrt.*", recursive=True
-        )
+        cudadevrt_paths = glob(f"{cuda_path}/lib*/**/*cudadevrt.*", recursive=True)
         if len(cudadevrt_paths) != 1:
             raise RuntimeError(f"cudadevrt path is vague: {cudadevrt_paths}")
         self.cudadevrt_path = cudadevrt_paths[0]
@@ -214,16 +212,16 @@ class CudaCompiler:
             for dtypes in instantiation[function_name]:
                 new_arg_types = replace_arg_types_with_template(arg_types, dtypes)
                 func_decl = (
-                        f'extern "C" __global__ {return_type} {function_name}'
-                        + "".join([f"_{dtype.name}" for dtype in dtypes])
-                        + "("
-                        + ", ".join(
-                    [
-                        f"{arg_type} {arg_name}"
-                        for arg_type, arg_name in zip(new_arg_types, arg_names)
-                    ]
-                )
-                        + ")"
+                    f'extern "C" __global__ {return_type} {function_name}'
+                    + "".join([f"_{dtype.name}" for dtype in dtypes])
+                    + "("
+                    + ", ".join(
+                        [
+                            f"{arg_type} {arg_name}"
+                            for arg_type, arg_name in zip(new_arg_types, arg_names)
+                        ]
+                    )
+                    + ")"
                 )
                 func_body = f"{function_name}(" + ", ".join(arg_names) + ");"
                 content += func_decl + "{\n  " + func_body + "\n}\n"
@@ -322,8 +320,8 @@ class CudaKernel:
         for arg in args:
             if isinstance(arg, Tensor):
                 if (
-                        arg.device.type != "cuda"
-                        or arg.device.index != self.stream.device_id
+                    arg.device.type != "cuda"
+                    or arg.device.index != self.stream.device_id
                 ):
                     raise RuntimeError(
                         f"Invalid device for invoking CUDA kernel: {arg.device}"
@@ -368,7 +366,7 @@ class CudaKernelAndStreamManager:
     _modules: dict[int, dict[str, driver.CUmodule]]
 
     def __init__(
-            self, cuda_compiler: CudaCompiler, cuda_context_manager: CudaContextManager
+        self, cuda_compiler: CudaCompiler, cuda_context_manager: CudaContextManager
     ):
         self._cuda_compiler = cuda_compiler
         self._cuda_context_manager = cuda_context_manager

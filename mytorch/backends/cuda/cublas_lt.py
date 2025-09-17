@@ -2,6 +2,7 @@ from typing import Optional
 import ctypes
 
 import numpy as np
+import numpy.typing as npt
 import cuda.pathfinder
 
 from mytorch.backends.cuda.env import CudaStream
@@ -234,25 +235,25 @@ class CublasLt:
                 f"cublasLt return code: {ret}({self.cublas_status[ret]})"
             )
 
-    def create(self) -> np.ndarray:
+    def create(self) -> npt.NDArray:
         light_handle = np.array(0, dtype=np.uint64)
         self._check_cublas_errors(self._lib.cublasLtCreate(light_handle.ctypes.data))
         return light_handle
 
-    def destroy(self, light_handle: np.ndarray):
+    def destroy(self, light_handle: npt.NDArray):
         self._check_cublas_errors(self._lib.cublasLtDestroy(light_handle.item()))
 
-    def matrix_layout_destroy(self, mat_layout: np.ndarray):
+    def matrix_layout_destroy(self, mat_layout: npt.NDArray):
         self._check_cublas_errors(
             self._lib.cublasLtMatrixLayoutDestroy(mat_layout.item())
         )
 
-    def matmul_desc_destroy(self, matmul_desc: np.ndarray):
+    def matmul_desc_destroy(self, matmul_desc: npt.NDArray):
         self._check_cublas_errors(
             self._lib.cublasLtMatmulDescDestroy(matmul_desc.item())
         )
 
-    def matmul_desc_create(self, compute_type: int, scale_type: int) -> np.ndarray:
+    def matmul_desc_create(self, compute_type: int, scale_type: int) -> npt.NDArray:
         matmul_desc = np.array(0, dtype=np.uint64)
         self._check_cublas_errors(
             self._lib.cublasLtMatmulDescCreate(
@@ -262,7 +263,7 @@ class CublasLt:
         return matmul_desc
 
     def matmul_desc_set_attribute(
-        self, matmul_desc: np.ndarray, attr: int, data: np.ndarray
+        self, matmul_desc: npt.NDArray, attr: int, data: npt.NDArray
     ):
         self._check_cublas_errors(
             self._lib.cublasLtMatmulDescSetAttribute(
@@ -272,7 +273,7 @@ class CublasLt:
 
     def matrix_layout_create(
         self, cuda_data_type: int, rows: int, cols: int, ld: int
-    ) -> np.ndarray:
+    ) -> npt.NDArray:
         mat_layout = np.array(0, dtype=np.uint64)
         self._check_cublas_errors(
             self._lib.cublasLtMatrixLayoutCreate(
@@ -286,7 +287,7 @@ class CublasLt:
         return mat_layout
 
     def matrix_layout_set_attribute(
-        self, mat_layout: np.ndarray, attr: int, data: np.ndarray
+        self, mat_layout: npt.NDArray, attr: int, data: npt.NDArray
     ):
         self._check_cublas_errors(
             self._lib.cublasLtMatrixLayoutSetAttribute(
@@ -294,7 +295,7 @@ class CublasLt:
             )
         )
 
-    def matrix_transform_desc_create(self, scale_type: int) -> np.ndarray:
+    def matrix_transform_desc_create(self, scale_type: int) -> npt.NDArray:
         desc = np.array(0, dtype=np.uint64)
         self._check_cublas_errors(
             self._lib.cublasLtMatrixTransformDescCreate(desc.ctypes.data, scale_type)
@@ -303,16 +304,16 @@ class CublasLt:
 
     def matrix_transform(
         self,
-        handle: np.ndarray,
-        transform_desc: np.ndarray,
-        alpha: np.ndarray,
+        handle: npt.NDArray,
+        transform_desc: npt.NDArray,
+        alpha: npt.NDArray,
         a: int,
-        a_desc: np.ndarray,
-        beta: np.ndarray,
+        a_desc: npt.NDArray,
+        beta: npt.NDArray,
         b: int,
-        b_desc: np.ndarray,
+        b_desc: npt.NDArray,
         c: int,
-        c_desc: np.ndarray,
+        c_desc: npt.NDArray,
         stream: CudaStream,
     ):
         self._check_cublas_errors(
@@ -333,19 +334,19 @@ class CublasLt:
 
     def matmul(
         self,
-        handle: np.ndarray,
-        compute_desc: np.ndarray,
-        alpha: np.ndarray,
+        handle: npt.NDArray,
+        compute_desc: npt.NDArray,
+        alpha: npt.NDArray,
         a: int,
-        a_desc: np.ndarray,
+        a_desc: npt.NDArray,
         b: int,
-        b_desc: np.ndarray,
-        beta: np.ndarray,
+        b_desc: npt.NDArray,
+        beta: npt.NDArray,
         c: int,
-        c_desc: np.ndarray,
+        c_desc: npt.NDArray,
         d: int,
-        d_desc: np.ndarray,
-        algo: Optional[np.ndarray],
+        d_desc: npt.NDArray,
+        algo: Optional[npt.NDArray],
         workspace: int,
         workspace_size_in_bytes: int,
         stream: CudaStream,

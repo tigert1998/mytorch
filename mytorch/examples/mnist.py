@@ -67,7 +67,7 @@ def train_mnist(device, ckpt, save_ckpt):
         accuracy = ckpt["accuracy"] * 100
         print(f"Accuracy: {accuracy:.2f}%")
 
-    for epoch in range(last_epoch + 1, last_epoch + 2):
+    for epoch in range(last_epoch + 1, last_epoch + 4):
         model.train()
         for i, (x, y) in enumerate(train_data_loader):
             input_tensor = x.to(device)

@@ -1,13 +1,16 @@
+from typing import Optional
 import numpy as np
 
 from mytorch.backends.cuda.env import CudaEnv
 from mytorch.backends.backend_dispatcher import BackendDispatcher
 from mytorch.backends.cuda.ops.mm import _cuda_bmm
+from mytorch.autograd import no_grad
+from mytorch.tensor import Tensor, MismatchDataTypesError
 
 
-def _im2col_input(input, weight, bias, stride=1, padding=0):
-    from mytorch.tensor import Tensor, MismatchDataTypesError
-
+def _im2col_input(
+    input: Tensor, weight: Tensor, bias: Optional[Tensor], stride=1, padding=0
+):
     stride = (stride, stride) if isinstance(stride, int) else stride
     padding = (padding, padding) if isinstance(padding, int) else padding
 
@@ -71,9 +74,14 @@ def _im2col_input(input, weight, bias, stride=1, padding=0):
     return a_tensor
 
 
-def _col2im_input(a_tensor, input, weight, bias, stride=1, padding=0):
-    from mytorch.tensor import Tensor, MismatchDataTypesError
-
+def _col2im_input(
+    a_tensor: Tensor,
+    input: Tensor,
+    weight: Tensor,
+    bias: Optional[Tensor],
+    stride=1,
+    padding=0,
+):
     stride = (stride, stride) if isinstance(stride, int) else stride
     padding = (padding, padding) if isinstance(padding, int) else padding
 
@@ -117,9 +125,9 @@ def _col2im_input(a_tensor, input, weight, bias, stride=1, padding=0):
     return input_grad
 
 
-def _im2col_weight(input, weight, bias, stride=1, padding=0):
-    from mytorch.tensor import Tensor
-
+def _im2col_weight(
+    input: Tensor, weight: Tensor, bias: Optional[Tensor], stride=1, padding=0
+):
     stride = (stride, stride) if isinstance(stride, int) else stride
     padding = (padding, padding) if isinstance(padding, int) else padding
 
@@ -173,9 +181,14 @@ def _im2col_weight(input, weight, bias, stride=1, padding=0):
     return b_tensor
 
 
-def _col2im_weight(b_tensor, input, weight, bias, stride=1, padding=0):
-    from mytorch.tensor import Tensor
-
+def _col2im_weight(
+    b_tensor: Tensor,
+    input: Tensor,
+    weight: Tensor,
+    bias: Optional[Tensor],
+    stride=1,
+    padding=0,
+):
     stride = (stride, stride) if isinstance(stride, int) else stride
     padding = (padding, padding) if isinstance(padding, int) else padding
 
@@ -217,7 +230,7 @@ def _col2im_weight(b_tensor, input, weight, bias, stride=1, padding=0):
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "conv2d")
-def cuda_conv2d(input, weight, bias, stride, padding):
+def cuda_conv2d(input: Tensor, weight: Tensor, bias: Optional[Tensor], stride, padding):
     output_shape = [
         input.shape[0],
         weight.shape[0],
@@ -229,7 +242,7 @@ def cuda_conv2d(input, weight, bias, stride, padding):
 
     a_tensor = _im2col_input(input, weight, bias, stride, padding)
     b_tensor = _im2col_weight(input, weight, bias, stride, padding)
-    c_tensor = _cuda_bmm(a_tensor, b_tensor, False, True, False)
+    c_tensor = _cuda_bmm(a_tensor, b_tensor, False, True)
     tensor = c_tensor.reshape(
         (output_shape[0], output_shape[2], output_shape[3], output_shape[1])
     ).permute((0, 3, 1, 2))
@@ -238,15 +251,22 @@ def cuda_conv2d(input, weight, bias, stride, padding):
 
 
 @BackendDispatcher.instance().register_backend_function("cuda", "conv2d_backward")
-def cuda_conv2d_backward(output_grad, input, weight, bias, stride, padding):
+def cuda_conv2d_backward(
+    output_grad: Tensor,
+    input: Tensor,
+    weight: Tensor,
+    bias: Optional[Tensor],
+    stride,
+    padding,
+):
     a_tensor = _im2col_input(input, weight, bias, stride, padding)
     # [1, bhw, padded(C_in * k^2)]
     b_tensor = _im2col_weight(input, weight, bias, stride, padding)
     # [1, C_out, padded(C_in * k^2)]
     c_tensor = output_grad.permute((0, 2, 3, 1)).reshape((1, -1, output_grad.shape[1]))
     # [1, bhw, C_out]
-    a_tensor_grad = _cuda_bmm(c_tensor, b_tensor, False, False, False)
-    b_tensor_grad = _cuda_bmm(c_tensor, a_tensor, True, False, False)
+    a_tensor_grad = _cuda_bmm(c_tensor, b_tensor, False, False)
+    b_tensor_grad = _cuda_bmm(c_tensor, a_tensor, True, False)
     input_grad = _col2im_input(a_tensor_grad, input, weight, bias, stride, padding)
     weight_grad, bias_grad = _col2im_weight(
         b_tensor_grad, input, weight, bias, stride, padding
