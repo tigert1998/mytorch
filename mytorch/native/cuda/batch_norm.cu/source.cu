@@ -132,18 +132,17 @@ __global__ void UpdateRunningStats(int n, T* old_value, T momentum,
 }
 
 template <typename T>
-__global__ void batch_norm2d_reference(int batch_size, int channels, int height,
-                                       int width, T* input, T* mean, T* var,
-                                       T eps, T* weight, T* bias,
-                                       int8_t training, T momentum,
-                                       T* running_mean, T* running_var,
-                                       T* output) {
+void batch_norm2d_reference(int batch_size, int channels, int height, int width,
+                            T* input, T* mean, T* var, T eps, T* weight,
+                            T* bias, int8_t training, T momentum,
+                            T* running_mean, T* running_var, T* output,
+                            cudaStream_t stream) {
   bool track_running_stats = running_mean != nullptr && running_var != nullptr;
   T *current_mean = nullptr, *current_var = nullptr;
   if (training || !track_running_stats) {
     dim3 grid = {1, 32, 1};
     dim3 block = {1024, 1, 1};
-    int shared_bytes = (block.x / warpSize) * sizeof(T);
+    int shared_bytes = (block.x / 32) * sizeof(T);
     ReduceTemplate<T, MeanForward<T>><<<grid, block, shared_bytes>>>(
         batch_size, channels, height, width, input, mean);
     ReduceTemplate<T, VarForward<T>><<<grid, block, shared_bytes>>>(
@@ -161,9 +160,9 @@ __global__ void batch_norm2d_reference(int batch_size, int channels, int height,
 
   dim3 grid = {32, 1, 1};
   dim3 block = {1024, 1, 1};
-  compute_batch_norm<<<grid, block>>>(batch_size, channels, height, width,
-                                      input, current_mean, current_var, eps,
-                                      weight, bias, output);
+  compute_batch_norm<<<grid, block, 0, stream>>>(
+      batch_size, channels, height, width, input, current_mean, current_var,
+      eps, weight, bias, output);
 }
 
 template <typename T>
@@ -268,24 +267,23 @@ class BatchNormBackwardReductionPass {
 };
 
 template <typename T>
-__global__ void batch_norm2d_backward_reference(int batch_size, int channels,
-                                                int height, int width, T* input,
-                                                T* mean, T* var, T eps,
-                                                T* weight, T* bias,
-                                                T* input_grad, T* weight_grad,
-                                                T* bias_grad, T* output_grad) {
+void batch_norm2d_backward_reference(int batch_size, int channels, int height,
+                                     int width, T* input, T* mean, T* var,
+                                     T eps, T* weight, T* bias, T* input_grad,
+                                     T* weight_grad, T* bias_grad,
+                                     T* output_grad, cudaStream_t stream) {
   dim3 grid = {1, 32, 1};
   dim3 block = {1024, 1, 1};
 
-  int shared_bytes = 2 * warpSize * sizeof(T);
+  int shared_bytes = 2 * 32 * sizeof(T);
   ReduceTemplate<T, BatchNormBackwardReductionPass<T>>
-      <<<grid, block, shared_bytes>>>(batch_size, channels, height, width,
-                                      input, mean, var, eps, weight_grad,
-                                      bias_grad, output_grad);
+      <<<grid, block, shared_bytes, stream>>>(
+          batch_size, channels, height, width, input, mean, var, eps,
+          weight_grad, bias_grad, output_grad);
 
   grid = {1, 32, 1};
   block = {1024, 1, 1};
-  BackNormBackwardElementwisePass<<<grid, block>>>(
+  BackNormBackwardElementwisePass<<<grid, block, 0, stream>>>(
       batch_size, channels, height, width, input, mean, var, eps, weight,
       input_grad, bias_grad, weight_grad, output_grad);
 }

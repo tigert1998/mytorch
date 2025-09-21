@@ -26,12 +26,6 @@ def cuda_batch_norm2d(
         device=input.device,
     )
 
-    func_name = f"batch_norm2d_reference_{input.dtype.name}"
-    cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
-    cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-        "batch_norm.cu", func_name, input.device.index
-    )
-
     mean = Tensor(
         dtype=input.dtype,
         shape=(channels,),
@@ -43,9 +37,10 @@ def cuda_batch_norm2d(
         device=input.device,
     )
 
-    cuda_kernel.run(
-        (1, 1, 1),
-        (1, 1, 1),
+    func_name = f"batch_norm2d_reference_{input.dtype.name}"
+    stream = CudaEnv.instance().kernel_and_stream_manager.get_stream(input.device.index)
+    CudaEnv.instance().library.run(
+        func_name,
         [
             np.array(batch_size),
             np.array(channels),
@@ -63,6 +58,7 @@ def cuda_batch_norm2d(
             running_var,
             tensor,
         ],
+        stream,
     )
 
     return tensor, mean, var
@@ -81,19 +77,14 @@ def cuda_batch_norm2d_backward(output_grad, mean, var, input, weight, bias, eps)
     bias_grad = Tensor(dtype=input.dtype, shape=(channels,), device=input.device)
 
     func_name = f"batch_norm2d_backward_reference_{input.dtype.name}"
-    cuda_kernel_and_stream_manager = CudaEnv.instance().kernel_and_stream_manager
-    cuda_kernel = cuda_kernel_and_stream_manager.get_kernel(
-        "batch_norm.cu", func_name, input.device.index
-    )
-
-    cuda_kernel.run(
-        (1, 1, 1),
-        (1, 1, 1),
+    stream = CudaEnv.instance().kernel_and_stream_manager.get_stream(input.device.index)
+    CudaEnv.instance().library.run(
+        func_name,
         [
-            np.array(batch_size),
-            np.array(channels),
-            np.array(height),
-            np.array(width),
+            np.array(batch_size, dtype=np.int32),
+            np.array(channels, dtype=np.int32),
+            np.array(height, dtype=np.int32),
+            np.array(width, dtype=np.int32),
             input,
             mean,
             var,
@@ -105,6 +96,7 @@ def cuda_batch_norm2d_backward(output_grad, mean, var, input, weight, bias, eps)
             bias_grad,
             output_grad,
         ],
+        stream,
     )
 
     if weight is None and bias is None:

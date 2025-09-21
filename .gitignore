@@ -3,3 +3,5 @@ __pycache__
 /datasets
 build
 .idea
+.mypy_cache
+generated

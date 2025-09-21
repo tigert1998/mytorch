@@ -1,0 +1,10 @@
+{
+    "ConvBackwardImplicitGEMM": [
+        "float16",
+        "float32"
+    ],
+    "ConvForwardImplicitGEMM": [
+        "float16",
+        "float32"
+    ]
+}
