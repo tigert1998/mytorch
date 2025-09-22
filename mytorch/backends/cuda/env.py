@@ -93,34 +93,9 @@ class CudaTimer:
         check_cuda_errors(runtime.cudaEventDestroy(self._end))
 
 
-class CudaCompiler:
-    _cuda_context_manager: CudaContextManager
-    cudadevrt_path: str
-
-    def __init__(self, cuda_context_manager):
-        self._cuda_context_manager = cuda_context_manager
-        cuda_path = os.environ["CUDA_PATH"]
-        cudadevrt_paths = glob(f"{cuda_path}/lib*/**/*cudadevrt.*", recursive=True)
-        if len(cudadevrt_paths) != 1:
-            raise RuntimeError(f"cudadevrt path is vague: {cudadevrt_paths}")
-        self.cudadevrt_path = cudadevrt_paths[0]
+class CudaSourceGenerator:
+    def __init__(self):
         self.kernel_src_path = osp.join(osp.dirname(__file__), "../../native/cuda")
-
-    def _arch(self, device_id):
-        cu_device = check_cuda_errors(driver.cuDeviceGet(device_id))
-        major = check_cuda_errors(
-            driver.cuDeviceGetAttribute(
-                driver.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR,
-                cu_device,
-            )
-        )
-        minor = check_cuda_errors(
-            driver.cuDeviceGetAttribute(
-                driver.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR,
-                cu_device,
-            )
-        )
-        return major, minor
 
     def _get_templated_source(self, path: str) -> tuple[str, str]:
         from mytorch.dtype import DType
@@ -244,14 +219,44 @@ class CudaCompiler:
         return content, hint_path
 
     def save_templated_source(self, path):
-        generated_folder = osp.join(osp.dirname(__file__), "../../../generated")
+        generated_folder = osp.join(osp.dirname(__file__), "../../../build/generated")
         os.makedirs(osp.dirname(osp.join(generated_folder, path)), exist_ok=True)
         with open(osp.join(generated_folder, path), "w") as f:
-            f.write(CudaEnv.instance().compiler._get_templated_source(path)[0])
+            f.write(self._get_templated_source(path)[0])
+
+
+class CudaCompiler:
+    _cuda_context_manager: CudaContextManager
+    cudadevrt_path: str
+
+    def __init__(self, cuda_context_manager):
+        self._cuda_source_generator = CudaSourceGenerator()
+        self._cuda_context_manager = cuda_context_manager
+        cuda_path = os.environ["CUDA_PATH"]
+        cudadevrt_paths = glob(f"{cuda_path}/lib*/**/*cudadevrt.*", recursive=True)
+        if len(cudadevrt_paths) != 1:
+            raise RuntimeError(f"cudadevrt path is vague: {cudadevrt_paths}")
+        self.cudadevrt_path = cudadevrt_paths[0]
+
+    def _arch(self, device_id):
+        cu_device = check_cuda_errors(driver.cuDeviceGet(device_id))
+        major = check_cuda_errors(
+            driver.cuDeviceGetAttribute(
+                driver.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR,
+                cu_device,
+            )
+        )
+        minor = check_cuda_errors(
+            driver.cuDeviceGetAttribute(
+                driver.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR,
+                cu_device,
+            )
+        )
+        return major, minor
 
     def compile(self, path, device_id) -> driver.CUmodule:
         if osp.isdir(path):
-            content, path = self._get_templated_source(path)
+            content, path = self._cuda_source_generator._get_templated_source(path)
         else:
             with open(path, "r") as f:
                 content = f.read()
@@ -263,7 +268,7 @@ class CudaCompiler:
         cuda_include_paths = [
             osp.join(cuda_path, "include"),
             osp.join(cuda_path, "include/cccl"),
-            self.kernel_src_path,
+            self._cuda_source_generator.kernel_src_path,
         ]
         opts = [
             b"--fmad=false",
@@ -466,7 +471,10 @@ class CudaKernelAndStreamManager:
             if self._modules.get(device_id) is None:
                 self._modules[device_id] = {}
             self._modules[device_id][cu_file_path] = self._cuda_compiler.compile(
-                osp.join(self._cuda_compiler.kernel_src_path, cu_file_path),
+                osp.join(
+                    self._cuda_compiler._cuda_source_generator.kernel_src_path,
+                    cu_file_path,
+                ),
                 device_id,
             )
         module = self._modules[device_id][cu_file_path]
