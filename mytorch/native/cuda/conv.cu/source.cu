@@ -110,8 +110,8 @@ __forceinline__ __device__ void ComputePrefetch(T *accum, int tx, int ty,
 
 template <typename T, uint32_t block_size_m, uint32_t block_size_n,
           uint32_t block_size_k, typename M1, typename M2, typename M3>
-__global__ void MatrixMul(uint32_t m, uint32_t n, uint32_t k, M1 d_a, M2 d_b,
-                          M3 d_c, T *bias) {
+__global__ void MatrixMulGeneral(uint32_t m, uint32_t n, uint32_t k, M1 d_a,
+                                 M2 d_b, M3 d_c, T *bias) {
   static constexpr uint32_t thread_size_m = block_size_m / 16;
   static constexpr uint32_t thread_size_n = block_size_n / 16;
 
@@ -163,6 +163,73 @@ __global__ void MatrixMul(uint32_t m, uint32_t n, uint32_t k, M1 d_a, M2 d_b,
     int x = offset_m + tx * thread_size_m + idx % thread_size_m;
     int y = offset_n + ty * thread_size_n + idx / thread_size_m;
     d_c.Add(x, y, accum[idx] + (bias != nullptr ? bias[y] : 0));
+  }
+}
+
+template <typename T, uint32_t R, typename M1, typename M2, typename M3>
+__global__ void MatrixMulTallAndSkinny(uint32_t m, uint32_t n, uint32_t k,
+                                       M1 d_a, M2 d_b, M3 d_c, T *bias) {
+  extern __shared__ char shared[];
+  T *sh_sum = (T *)shared;
+  int stride = blockDim.x * gridDim.x;
+
+  T local_sum[R] = {(T)0};
+  for (int p = threadIdx.x + blockIdx.x * blockDim.x; p < k; p += stride) {
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        local_sum[i * n + j] += d_a.Get(i, p) * d_b.Get(p, j);
+      }
+    }
+  }
+
+  int tid = threadIdx.x;
+  if (tid == 0) {
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        sh_sum[i * n + j] = 0;
+        d_c.Set(i, j, 0);
+      }
+    }
+  }
+  __syncthreads();
+
+  for (int i = 0; i < m * n; i++) {
+    atomicAdd(&sh_sum[i], local_sum[i]);
+  }
+  __syncthreads();
+
+  if (tid == 0) {
+    for (int i = 0; i < m; i++) {
+      for (int j = 0; j < n; j++) {
+        d_c.Add(i, j, sh_sum[i * n + j] + (bias != nullptr ? bias[j] : 0));
+      }
+    }
+  }
+}
+
+template <typename T, typename M1, typename M2, typename M3>
+void MatrixMul(M1 a, M2 b, M3 c, T *bias, cudaStream_t stream) {
+  uint32_t m = c.layout.matrix_height;
+  uint32_t n = c.layout.matrix_width;
+  uint32_t k = a.layout.matrix_width;
+
+  if (m * n <= 1024) {
+    dim3 block = {32, 1, 1};
+    dim3 grid = {256, 1, 1};
+    int shared_bytes = m * n * sizeof(T);
+    MatrixMulTallAndSkinny<T, 1024>
+        <<<grid, block, shared_bytes, stream>>>(m, n, k, a, b, c, bias);
+  } else {
+    static constexpr uint32_t block_size_m = 64, block_size_n = 64,
+                              block_size_k = 8;
+    constexpr int num_warps = 8;
+    dim3 block = {32 * num_warps, 1, 1};
+    dim3 grid = {(m + block_size_m - 1) / block_size_m,
+                 (n + block_size_n - 1) / block_size_n, 1};
+    int shared_bytes = (block_size_m + block_size_n) * block_size_k * sizeof(T);
+
+    MatrixMulGeneral<T, block_size_m, block_size_n, block_size_k>
+        <<<grid, block, shared_bytes, stream>>>(m, n, k, a, b, c, bias);
   }
 }
 
@@ -304,19 +371,7 @@ void ConvForwardImplicitGEMM(int batch_size, int input_channels, int height,
                              output_width);
   MatrixWrapper<T, OutputLayout> c(output, output_layout);
 
-  uint32_t m = batch_size * output_height * output_width;
-  uint32_t n = output_channels;
-  uint32_t k = input_channels * kernel_height * kernel_width;
-  static constexpr uint32_t block_size_m = 64, block_size_n = 64,
-                            block_size_k = 8;
-  uint32_t num_warps = 8;
-  dim3 block = {32 * num_warps, 1, 1};
-  dim3 grid = {(m + block_size_m - 1) / block_size_m,
-               (n + block_size_n - 1) / block_size_n, 1};
-  int shared_bytes = (block_size_m + block_size_n) * block_size_k * sizeof(T);
-
-  MatrixMul<T, block_size_m, block_size_n, block_size_k>
-      <<<grid, block, shared_bytes, stream>>>(m, n, k, a, b, c, bias);
+  MatrixMul<T>(a, b, c, bias, stream);
 }
 
 template <typename T>
@@ -327,12 +382,6 @@ void ConvBackwardImplicitGEMM(int batch_size, int input_channels, int height,
                               int output_channels, T *input, T *weight,
                               T *output_grad, T *input_grad, T *weight_grad,
                               cudaStream_t stream) {
-  static constexpr uint32_t block_size_m = 64, block_size_n = 64,
-                            block_size_k = 8;
-  static constexpr int shared_bytes =
-      (block_size_m + block_size_n) * block_size_k * sizeof(T);
-  static constexpr uint32_t num_warps = 8;
-
   int output_height =
       (height + 2 * padding_height - kernel_height) / stride_height + 1;
   int output_width =
@@ -362,23 +411,6 @@ void ConvBackwardImplicitGEMM(int batch_size, int input_channels, int height,
                                                     weight_grad_layout);
 
   // calculation
-  uint32_t m = input_grad_matrix.layout.matrix_height;
-  uint32_t n = input_grad_matrix.layout.matrix_width;
-  uint32_t k = c.layout.matrix_width;
-  dim3 block = {32 * num_warps, 1, 1};
-  dim3 grid = {(m + block_size_m - 1) / block_size_m,
-               (n + block_size_n - 1) / block_size_n, 1};
-  MatrixMul<T, block_size_m, block_size_n, block_size_k>
-      <<<grid, block, shared_bytes, stream>>>(m, n, k, c, b, input_grad_matrix,
-                                              nullptr);
-
-  m = weight_grad_matrix.layout.matrix_height;
-  n = weight_grad_matrix.layout.matrix_width;
-  k = a.layout.matrix_width;
-  block = {32 * num_warps, 1, 1};
-  grid = {(m + block_size_m - 1) / block_size_m,
-          (n + block_size_n - 1) / block_size_n, 1};
-  MatrixMul<T, block_size_m, block_size_n, block_size_k>
-      <<<grid, block, shared_bytes, stream>>>(m, n, k, a, c, weight_grad_matrix,
-                                              nullptr);
+  MatrixMul<T>(c, b, input_grad_matrix, nullptr, stream);
+  MatrixMul<T>(a, c, weight_grad_matrix, nullptr, stream);
 }
