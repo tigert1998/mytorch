@@ -3,6 +3,7 @@ import numpy as np
 import ctypes
 import os.path as osp
 from glob import glob
+import sys
 import regex as re
 import json
 
@@ -339,7 +340,11 @@ class CudaCompiler:
 
 class CudaLibrary:
     def __init__(self):
-        self._lib = ctypes.cdll.LoadLibrary("build/Release/mytorch-cuda-backend.dll")
+        if sys.platform == "win32":
+            path = "build/Release/mytorch-cuda-backend.dll"
+        else:
+            path = "build/Release/libmytorch-cuda-backend.so"
+        self._lib = ctypes.cdll.LoadLibrary(path)
 
     def _prepare_args(self, args):
         from mytorch.tensor import Tensor
