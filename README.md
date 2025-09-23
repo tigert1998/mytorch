@@ -16,6 +16,7 @@ MyTorch is fully built from scratch except cublasLt usage for fast matrix multip
 ## Build
 
 ```bash
+${YOUR_PYTHON_PATH} -m pip install -r ./requirements.txt
 cmake -DPYTHON=${YOUR_PYTHON_PATH} -B ./build
 cmake --build ./build --config Release
 ```
