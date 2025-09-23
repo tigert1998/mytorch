@@ -96,6 +96,9 @@ class CudaTimer:
 class CudaSourceGenerator:
     def __init__(self):
         self.kernel_src_path = osp.join(osp.dirname(__file__), "../../native/cuda")
+        self.generated_src_path = osp.join(
+            osp.dirname(__file__), "../../../build/generated"
+        )
 
     def _get_templated_source(self, path: str) -> tuple[str, str]:
         from mytorch.dtype import DType
@@ -219,9 +222,9 @@ class CudaSourceGenerator:
         return content, hint_path
 
     def save_templated_source(self, path):
-        generated_folder = osp.join(osp.dirname(__file__), "../../../build/generated")
-        os.makedirs(osp.dirname(osp.join(generated_folder, path)), exist_ok=True)
-        with open(osp.join(generated_folder, path), "w") as f:
+        generated_path = osp.join(self.generated_src_path, path)
+        os.makedirs(osp.dirname(generated_path), exist_ok=True)
+        with open(generated_path, "w") as f:
             f.write(self._get_templated_source(path)[0])
 
 
