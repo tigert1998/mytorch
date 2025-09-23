@@ -13,6 +13,13 @@ MyTorch is fully built from scratch except cublasLt usage for fast matrix multip
 - Module/optimizer state_dict save and loading through `mytorch.save` and `mytorch.load`.
 - Data stuff: `DataLoader` and `Dataset`.
 
+## Build
+
+```bash
+cmake -DPYTHON=${YOUR_PYTHON_PATH} -B ./build
+cmake --build ./build --config Release
+```
+
 ## Examples
 
 ### Linear Regression Example
@@ -42,4 +49,4 @@ python -m mytorch.examples.mnist --ckpt ./ckpt.mt --eval 0 1 2 3 4
 
 ## Drawbacks
 
-- Now MyTorch is slightly slower than PyTorch due to lack of finegrained optimization. In the aforementioned MNIST example, MyTorch (43s on a laptop RTX 4060) is around 26% slower than PyTorch (34s) when running 3 epochs.
+- Now MyTorch is slightly slower than PyTorch due to lack of finegrained optimization. In the aforementioned MNIST example, MyTorch (209s on a laptop RTX 4060) is around 25% slower than PyTorch (166s) when running 16 epochs.

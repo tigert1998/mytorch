@@ -1,7 +1,9 @@
 import os
 import numpy as np
+import ctypes
 import os.path as osp
 from glob import glob
+import sys
 import regex as re
 import json
 
@@ -92,34 +94,12 @@ class CudaTimer:
         check_cuda_errors(runtime.cudaEventDestroy(self._end))
 
 
-class CudaCompiler:
-    _cuda_context_manager: CudaContextManager
-    cudadevrt_path: str
-
-    def __init__(self, cuda_context_manager):
-        self._cuda_context_manager = cuda_context_manager
-        cuda_path = os.environ["CUDA_PATH"]
-        cudadevrt_paths = glob(f"{cuda_path}/lib*/**/*cudadevrt.*", recursive=True)
-        if len(cudadevrt_paths) != 1:
-            raise RuntimeError(f"cudadevrt path is vague: {cudadevrt_paths}")
-        self.cudadevrt_path = cudadevrt_paths[0]
+class CudaSourceGenerator:
+    def __init__(self):
         self.kernel_src_path = osp.join(osp.dirname(__file__), "../../native/cuda")
-
-    def _arch(self, device_id):
-        cu_device = check_cuda_errors(driver.cuDeviceGet(device_id))
-        major = check_cuda_errors(
-            driver.cuDeviceGetAttribute(
-                driver.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR,
-                cu_device,
-            )
+        self.generated_src_path = osp.join(
+            osp.dirname(__file__), "../../../build/generated"
         )
-        minor = check_cuda_errors(
-            driver.cuDeviceGetAttribute(
-                driver.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR,
-                cu_device,
-            )
-        )
-        return major, minor
 
     def _get_templated_source(self, path: str) -> tuple[str, str]:
         from mytorch.dtype import DType
@@ -165,7 +145,7 @@ class CudaCompiler:
         template_funcs = re.findall(pattern, content, re.DOTALL | re.VERBOSE)
         pattern = r"""
             template\s*<([^>]+)>\s*    # capture template T
-            (?:\w+__\s+)*              # capture __global__
+            ((?:__\w+__\s*)*)          # capture __global__
             (\w+)\s+                   # capture return type
             (\w+)\s*                   # capture funtion name
             \(\s*([^)]*)\s*\)          # capture arguments
@@ -190,13 +170,22 @@ class CudaCompiler:
                     new_arg_types.append(arg_type)
             return new_arg_types
 
+        content += """
+#ifdef _WIN32
+#define API __declspec(dllexport)
+#else
+#define API
+#endif
+"""
+
         for template_func in template_funcs:
             match = re.match(pattern, template_func, re.VERBOSE | re.DOTALL)
             template_part = match.group(1)
             template_types = re.findall(r"typename\s+(\w+)", template_part)
-            return_type = match.group(2)
-            function_name = match.group(3)
-            params_str = match.group(4)
+            has_global = match.group(2)
+            return_type = match.group(3)
+            function_name = match.group(4)
+            params_str = match.group(5)
 
             param_pattern = r"(?:\s*,|^)([^,]+[&|*|\s+])(\w+)"
             params = re.findall(param_pattern, params_str)
@@ -211,8 +200,13 @@ class CudaCompiler:
 
             for dtypes in instantiation[function_name]:
                 new_arg_types = replace_arg_types_with_template(arg_types, dtypes)
+                desc = (
+                    has_global
+                    if has_global is not None and has_global.strip() != ""
+                    else "API"
+                )
                 func_decl = (
-                    f'extern "C" __global__ {return_type} {function_name}'
+                    f'extern "C" {desc} {return_type} {function_name}'
                     + "".join([f"_{dtype.name}" for dtype in dtypes])
                     + "("
                     + ", ".join(
@@ -228,9 +222,45 @@ class CudaCompiler:
 
         return content, hint_path
 
+    def save_templated_source(self, path):
+        generated_path = osp.join(self.generated_src_path, path)
+        os.makedirs(osp.dirname(generated_path), exist_ok=True)
+        with open(generated_path, "w") as f:
+            f.write(self._get_templated_source(path)[0])
+
+
+class CudaCompiler:
+    _cuda_context_manager: CudaContextManager
+    cudadevrt_path: str
+
+    def __init__(self, cuda_context_manager):
+        self._cuda_source_generator = CudaSourceGenerator()
+        self._cuda_context_manager = cuda_context_manager
+        cuda_path = os.environ["CUDA_PATH"]
+        cudadevrt_paths = glob(f"{cuda_path}/lib*/**/*cudadevrt.*", recursive=True)
+        if len(cudadevrt_paths) != 1:
+            raise RuntimeError(f"cudadevrt path is vague: {cudadevrt_paths}")
+        self.cudadevrt_path = cudadevrt_paths[0]
+
+    def _arch(self, device_id):
+        cu_device = check_cuda_errors(driver.cuDeviceGet(device_id))
+        major = check_cuda_errors(
+            driver.cuDeviceGetAttribute(
+                driver.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR,
+                cu_device,
+            )
+        )
+        minor = check_cuda_errors(
+            driver.cuDeviceGetAttribute(
+                driver.CUdevice_attribute.CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR,
+                cu_device,
+            )
+        )
+        return major, minor
+
     def compile(self, path, device_id) -> driver.CUmodule:
         if osp.isdir(path):
-            content, path = self._get_templated_source(path)
+            content, path = self._cuda_source_generator._get_templated_source(path)
         else:
             with open(path, "r") as f:
                 content = f.read()
@@ -242,7 +272,7 @@ class CudaCompiler:
         cuda_include_paths = [
             osp.join(cuda_path, "include"),
             osp.join(cuda_path, "include/cccl"),
-            self.kernel_src_path,
+            self._cuda_source_generator.kernel_src_path,
         ]
         opts = [
             b"--fmad=false",
@@ -306,6 +336,61 @@ class CudaCompiler:
         module = check_cuda_errors(driver.cuModuleLoadData(cubin_ptr))
         check_cuda_errors(driver.cuLinkDestroy(link_state))
         return module
+
+
+class CudaLibrary:
+    def __init__(self):
+        if sys.platform == "win32":
+            path = "build/Release/mytorch-cuda-backend.dll"
+        else:
+            path = "build/Release/libmytorch-cuda-backend.so"
+        self._lib = ctypes.cdll.LoadLibrary(path)
+
+    def _prepare_args(self, args):
+        from mytorch.tensor import Tensor
+
+        new_args = []
+        argtypes = []
+
+        for arg in args:
+            if isinstance(arg, Tensor):
+                new_args.append(int(arg._native().ptr))
+                argtypes.append(ctypes.c_void_p)
+            elif isinstance(arg, np.ndarray):
+                new_args.append(arg.item())
+                if arg.dtype == np.float32:
+                    argtypes.append(ctypes.c_float)
+                elif arg.dtype == np.int32:
+                    argtypes.append(ctypes.c_int)
+                elif arg.dtype == np.int8:
+                    argtypes.append(ctypes.c_int8)
+                else:
+                    raise RuntimeError(
+                        f"Invalid argument type {arg.dtype} for CUDA library"
+                    )
+            elif arg is None:
+                new_args.append(0)
+                argtypes.append(ctypes.c_void_p)
+            elif isinstance(arg, CudaStream):
+                new_args.append(int(arg.stream))
+                argtypes.append(ctypes.c_void_p)
+            else:
+                raise RuntimeError(
+                    f"Invalid data type for invoking kernel: {arg} ({type(arg)})"
+                )
+        return new_args, argtypes
+
+    def run(self, function_name, args, stream: CudaStream, timer: bool = False):
+        args, argtypes = self._prepare_args(args + [stream])
+        self._lib.batch_norm2d_reference_float32.argtypes = argtypes
+        func = self._lib[function_name]
+        func.argtypes = argtypes
+        if timer:
+            cuda_timer = CudaTimer(stream)
+            cuda_timer.start()
+        func(*args)
+        if timer:
+            return cuda_timer.end()
 
 
 class CudaKernel:
@@ -394,7 +479,10 @@ class CudaKernelAndStreamManager:
             if self._modules.get(device_id) is None:
                 self._modules[device_id] = {}
             self._modules[device_id][cu_file_path] = self._cuda_compiler.compile(
-                osp.join(self._cuda_compiler.kernel_src_path, cu_file_path),
+                osp.join(
+                    self._cuda_compiler._cuda_source_generator.kernel_src_path,
+                    cu_file_path,
+                ),
                 device_id,
             )
         module = self._modules[device_id][cu_file_path]
@@ -422,6 +510,7 @@ class CudaEnv:
             self.compiler, self.context_manager
         )
         self.allocator = SimpleCudaMemoryAllocator()
+        self.library = CudaLibrary()
 
     def destroy(self):
         self.allocator.destroy()
